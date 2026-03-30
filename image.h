@@ -183,14 +183,12 @@ void single_side_bridge_judge2(uint8_t start);
 void single_side_bridge_judge(uint8_t start, uint8_t end);
 void traverse_brige_judge(void);
 void ramp_judge(uint8_t start, uint8_t end);
-void out_check();
 void bend_judge(void);
 
 //===================================================¸÷ÔªËØ×´Ì¬»ú=================================================
 
 void general_judgement(void);
 void cross_state_machine(void);
-void zebra_crossing_state_machine(void);
 void single_side_bridge_state_machine(void);
 void straight(void);
 void bend(uint8_t start);
