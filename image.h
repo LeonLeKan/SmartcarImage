@@ -166,7 +166,6 @@ void print_f(void);//打印数值的函数
 void datas_init(void);
 void get_white_threshold_avg(void);
 void threshold_decrease(void);
-void threshold_add_gray(void);
 road_range search_white_range_begin(uint8_t line, uint8_t col);
 uint8_t is_connect_continue(road_range* new_white, road_range* pre_line);
 uint8_t is_connect(road_range* new_white, road* pre_line, uint8_t continue_id);
@@ -178,11 +177,8 @@ void zebra_judge(uint8_t start, uint8_t end);
 void roundabout_judge(uint8_t start, uint8_t end);
 void crossing_judge(uint8_t start, uint8_t end);
 void straight_judge(uint8_t start, uint8_t end);
-void roadblock_judge(uint8_t start, uint8_t end);
 void single_side_bridge_judge2(uint8_t start);
 void single_side_bridge_judge(uint8_t start, uint8_t end);
-void traverse_brige_judge(void);
-void ramp_judge(uint8_t start, uint8_t end);
 void bend_judge(void);
 
 //===================================================各元素状态机=================================================
@@ -198,9 +194,7 @@ void bend(uint8_t start);
 void left_roundabout_road_choose(uint8_t* road_continue);                             //左环岛选道
 void right_roundabout_road_choose(uint8_t* road_continue);                            //右环岛选道
 void renew_road(void);                                                                //按中间选道
-void traverse_bridge_road_choose(void);                                               //横断桥选赛道
 void single_side_road_choose(void);                                                   //单边桥选两边
-void traverse_bridge_get_twp_line(uint8_t* road_continue);                            //横断桥选两边
 void single_side_bridge_two_line(uint8_t* road_continue);
 void find_road_state(void);
 

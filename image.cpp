@@ -75,24 +75,7 @@ uint8_t road_max = 0;
 //直道
 uint8_t left_f2_y = 0;//左边线二阶导拐点
 uint8_t right_f2_y = 0;//右边线二阶导拐点
-//路障
-uint8_t roadblock_left_guai_y = 0;
-uint8_t roadblock_right_guai_y = 0;
-uint8_t roadblock_right_guai_y2 = 0;
-uint8_t roadblock_left_guai_y2 = 0;
-uint8_t left_pianyi = 0;
-uint8_t right_pianyi = 0;
-//横断桥
-uint8_t traverse_left_side_y = 0;
-uint8_t traverse_right_side_y = 0;
-uint8_t traverse_left_f2_y = 0;
-uint8_t traverse_right_f2_y = 0;
-uint8_t traverse_near_road = 0;//横断桥下
-uint8_t traverse_top_road = 0;//横断桥上
-uint8_t traverse_left_f2_y2 = 0;
-uint8_t traverse_right_f2_y2 = 0;
-uint8_t traverse_flag = 0;
-float traverse_angle = 0;
+
 //单边桥
 uint8_t single_side_left_f2_y = 0;//左边线突变点
 uint8_t single_side_right_f2_y = 0;//右边线突变点
@@ -105,25 +88,6 @@ uint8_t right_nb = 0;
 uint8_t single_start_fps = 0;
 uint8_t single_start_fps_up;
 float single_dis = 0;
-//坡道
-int8_t ramp_left_f2_max = 0;
-int8_t ramp_right_f2_max = 0;
-int8_t ramp_right_f2_min = 0;
-uint8_t ramp_left_f2_y = 0;
-uint8_t ramp_right_f2_y = 0;
-uint8_t ramp_2fps;
-uint8_t ramp_y_d = 40;
-uint8_t ramp_fps_d1 = 0;
-uint8_t ramp_fps_d2 = 0;
-uint8_t ramp_fps_d3 = 0;
-float ramp_left_up_k = 0;
-float ramp_right_up_k = 0;
-uint16_t ramp_dis = 0;
-#if ADS
-uint8_t ramp_end = 100;
-#else
-uint8_t ramp_end = 100;
-#endif
 
 
 //关于阈值
@@ -1383,261 +1347,7 @@ void straight_judge(uint8_t start, uint8_t end)
     right_f2_y = get_line_f2_forward_y(right_line, start, end, 5, 5);
 }
 
-//判断进入路障
-void roadblock_judge(uint8_t start, uint8_t end)
-{
-    uint8_t roadblock_left_f2_y = 0;
-    uint8_t roadblock_right_f2_y = 0;
-    uint8_t left_side = 0;
-    uint8_t right_side = 0;
-    uint8_t roadblock_left_ok = 0;
-    uint8_t roadblock_right_ok = 0;
-    uint8_t top_up_road_num = 0;
-    uint8_t traverse_okok = 0;
-    uint8_t block_road_max = 0;
-    //为了让避障和单边桥分别，算出黑条子所占白条子比值
-    float black_duty = 0;
-    roadblock_left_guai_y = NEAR_LINE - 10;
-    roadblock_right_guai_y = NEAR_LINE - 10;
-    while (roadblock_left_guai_y = get_line_f2_forward_y(left_line, roadblock_left_guai_y, top_road + 10, 7, 5))
-    {
-        //找左避障的左下拐点
-        if (2 * left_line[roadblock_left_guai_y] - left_line[roadblock_left_guai_y - 5] - left_line[roadblock_left_guai_y + 5] < -8 && left_line[roadblock_left_guai_y] - left_line[roadblock_left_guai_y + 5] > -4 &&
-            left_line[roadblock_left_guai_y] - left_line[roadblock_left_guai_y + 1] < 2 && left_line[roadblock_left_guai_y] - left_line[roadblock_left_guai_y + 1] > -2 &&
-            left_line[roadblock_left_guai_y] - left_line[roadblock_left_guai_y - 3] < -11 && left_line[roadblock_left_guai_y] - left_line[roadblock_left_guai_y - 1] < 2)
-        {
-            for (uint8_t i = roadblock_left_guai_y - 5; i > top_road + 12; i--)
-            {
-                if (get_straight_line(left_line, i, i - 10, 5) == 0 && 2 * left_line[i] - left_line[i - 10] - left_line[roadblock_left_guai_y] > 5 &&
-                    left_line[i - 10] - left_line[roadblock_left_guai_y] > -50 && left_line[i - 10] - left_line[roadblock_left_guai_y] < 50)
-                {
-                    roadblock_left_guai_y2 = i - 10;
-                    break;
-                }
-                else if (i == top_road + 13)
-                {
-                    roadblock_left_ok = 1;
-                }
-            }
-            if (roadblock_left_ok == 1)
-            {
-                roadblock_left_guai_y = 0;
-            }
-            break;
-        }
-        if (left_line[roadblock_left_guai_y] - left_line[roadblock_left_guai_y - 2] > 10)
-        {
-            roadblock_left_guai_y = 0;
-            break;
-        }
-        else
-        {
-            roadblock_left_guai_y = roadblock_left_guai_y - 1;
-        }
-    }
-    while (roadblock_right_guai_y = get_line_f2_forward_y(right_line, roadblock_right_guai_y, top_road + 10, 7, 5))
-    {
-        //找右避障的右下拐点
-        if (2 * right_line[roadblock_right_guai_y] - right_line[roadblock_right_guai_y - 5] - right_line[roadblock_right_guai_y + 5] > 8 && right_line[roadblock_right_guai_y] - right_line[roadblock_right_guai_y + 5] < 4 &&
-            right_line[roadblock_right_guai_y] - right_line[roadblock_right_guai_y + 1] < 2 && right_line[roadblock_right_guai_y] - right_line[roadblock_right_guai_y + 1] > -2 &&
-            right_line[roadblock_right_guai_y] - right_line[roadblock_right_guai_y - 3] > 11 && right_line[roadblock_right_guai_y] - right_line[roadblock_right_guai_y - 1] > -2)
-        {
-            for (uint8_t i = roadblock_right_guai_y - 5; i > top_road + 12; i--)
-            {
-                if (get_straight_line(right_line, i, i - 10, 5) == 0 && 2 * right_line[i] - right_line[i - 10] - right_line[roadblock_right_guai_y] < -5 &&
-                    right_line[i - 10] - right_line[roadblock_right_guai_y] > -50 && right_line[i - 10] - right_line[roadblock_right_guai_y] < 50)
-                {
-                    roadblock_right_guai_y2 = i - 10;
-                    break;
-                }
-                else if (i == top_road + 13)
-                {
-                    roadblock_right_ok = 1;
-                }
-            }
-            if (roadblock_right_ok == 1)
-            {
-                roadblock_right_guai_y = 0;
-            }
-            break;
-        }
-        if (right_line[roadblock_right_guai_y] - right_line[roadblock_right_guai_y - 2] < -10)
-        {
-            roadblock_right_guai_y = 0;
-            break;
-        }
-        else
-        {
-            roadblock_right_guai_y = roadblock_right_guai_y - 1;
-        }
-    }
-    if (roadblock_left_guai_y2 != 0 && roadblock_right_guai_y == 0)
-    {
-        roadblock_right_f2_y = get_straight_line(right_line, roadblock_left_guai_y + 10, roadblock_left_guai_y2, 7);
-        if (roadblock_right_f2_y == 0)
-        {
-            roadblock_right_f2_y = get_line_f2_max_y(right_line, roadblock_left_guai_y + 10, roadblock_left_guai_y2 + 5);
-        }
 
-    }
-    if (roadblock_right_guai_y2 != 0 && roadblock_left_guai_y == 0)
-    {
-        roadblock_left_f2_y = get_straight_line(left_line, roadblock_right_guai_y + 10, roadblock_right_guai_y2, 7);
-        if (roadblock_left_f2_y == 0)
-        {
-            roadblock_left_f2_y = get_line_f2_max_y(left_line, roadblock_right_guai_y + 10, roadblock_right_guai_y2 + 5);
-        }
-    }
-    if (roadblock_right_guai_y != 0)
-    {
-        for (uint8_t i = NEAR_LINE - 5; i > roadblock_right_guai_y + 2; i--)
-        {
-            if (2 * right_line[i] - right_line[i - 4] - right_line[i + 4] < -4)
-            {
-                roadblock_right_guai_y = 0;
-                break;
-            }
-        }
-    }
-    if (roadblock_left_guai_y != 0)
-    {
-        for (uint8_t i = NEAR_LINE - 5; i > roadblock_left_guai_y + 2; i--)
-        {
-            if (2 * left_line[i] - left_line[i - 3] - left_line[i + 3] > 4)
-            {
-                roadblock_left_guai_y = 0;
-                break;
-            }
-        }
-    }
-    if (roadblock_left_guai_y2 >= 10 && roadblock_right_f2_y == 0)
-    {
-        black_duty = (float)(left_line[roadblock_left_guai_y - 5] - left_line[roadblock_left_guai_y]) / (right_line[roadblock_left_guai_y] - left_line[roadblock_left_guai_y]);
-    }
-    else if (roadblock_right_guai_y2 >= 10 && roadblock_left_f2_y == 0)
-    {
-        black_duty = (float)(right_line[roadblock_right_guai_y] - right_line[roadblock_right_guai_y - 5]) / (right_line[roadblock_right_guai_y] - left_line[roadblock_right_guai_y]);
-    }
-    if (roadblock_right_guai_y2 != 0)
-    {
-        for (uint8_t i = NEAR_LINE - 5; i > roadblock_right_guai_y2; i--)
-        {
-            if (my_road[i].white_num > block_road_max)
-            {
-                block_road_max = my_road[i].white_num;
-            }
-        }
-    }
-    else if (roadblock_left_guai_y2 != 0)
-    {
-        for (uint8_t i = NEAR_LINE - 5; i > roadblock_left_guai_y2; i--)
-        {
-            if (my_road[i].white_num > block_road_max)
-            {
-                block_road_max = my_road[i].white_num;
-            }
-        }
-    }
-    left_side = get_line_side(left_line, NEAR_LINE - 5, roadblock_left_guai_y, 5);
-    right_side = get_line_side(right_line, NEAR_LINE - 5, roadblock_right_guai_y, 5);
-    if (roadblock_left_guai_y2 > 10 && roadblock_right_f2_y == 0 && block_road_max <= 3 && top_road < 20 && black_duty < 0.4 && (roadblock_left_guai_y - roadblock_left_guai_y2) >= 5
-        && left_side <= 10 && right_side <= 10 && roadblock_right_guai_y == 0)
-    {
-        step = left_roadblock;
-        roadblock_state = 1;
-    }
-    else if (roadblock_right_guai_y2 > 10 && roadblock_left_f2_y == 0 && block_road_max <= 3 && top_road < 20 && black_duty < 0.4 && (roadblock_right_guai_y - roadblock_right_guai_y2) >= 5
-        && right_side <= 10 && left_side <= 10 && roadblock_left_guai_y == 0)
-    {
-        step = right_roadblock;
-        roadblock_state = 1;
-    }
-    //printf("black_duty = %f\n", black_duty);
-}
-//横断桥判断
-void traverse_brige_judge()
-{
-    uint8_t white_larger = get_white_width_larger(NEAR_LINE - 10, top_road, 10);
-    uint8_t top_road_num_u = 0;
-    uint8_t toproad_width_u = 0;
-    uint8_t traverse_ok = 0;
-    uint8_t traverse_width = 0;
-    uint8_t traverse_white_num = 0;
-    traverse_left_side_y = get_line_side(left_line, NEAR_LINE - 30, top_road, 15);
-    traverse_right_side_y = get_line_side(right_line, NEAR_LINE - 30, top_road, 15);
-    if (top_road - 2 > 0)
-    {
-        top_road_num_u = my_road[top_road - 5].white_num;
-        if (top_road_num_u > 0)
-        {
-            toproad_width_u = my_road[top_road_num_u].connected[1].width;
-        }
-    }
-    //先找到横断桥的两个拐点
-    traverse_left_f2_y = get_line_f2_max_y(left_line, NEAR_LINE - 20, top_road + 4);
-    traverse_right_f2_y = get_line_f2_max_y(right_line, NEAR_LINE - 20, top_road + 4);
-    //代表右转遇到了横断桥或者直道遇到横断桥
-    if (traverse_left_f2_y == 0 && traverse_right_f2_y != 0)
-    {
-        traverse_width = right_line[traverse_right_f2_y] - left_line[traverse_right_f2_y];
-        if (get_straight_line(right_line, 65, traverse_right_f2_y, 5) == 0 && right_line[traverse_right_f2_y] - left_line[traverse_right_f2_y] > 40 &&
-            get_straight_line(left_line, 65, top_road, 8) == 0)
-        {
-            if (get_straight_line(right_line, traverse_right_f2_y, top_road, 5) == 0 || traverse_right_f2_y - top_road == 5)
-            {
-                traverse_ok = 1;
-            }
-        }
-    }
-    //代表左转遇到了横断桥或者直道遇到横断桥
-    if (traverse_right_f2_y == 0 && traverse_left_f2_y != 0)
-    {
-        traverse_width = right_line[traverse_left_f2_y] - left_line[traverse_left_f2_y];
-        if (get_straight_line(left_line, 65, traverse_left_f2_y, 5) == 0 && right_line[traverse_left_f2_y] - left_line[traverse_left_f2_y] > 40 &&
-            get_straight_line(right_line, 65, top_road, 8) == 0)
-        {
-            if (get_straight_line(left_line, traverse_left_f2_y, top_road, 5) == 0 || traverse_left_f2_y - top_road == 5)
-            {
-                traverse_ok = 1;
-            }
-
-        }
-    }
-    //代表直道遇到单边桥
-    if (traverse_left_f2_y != 0 && traverse_right_f2_y != 0)
-    {
-        traverse_width = right_line[top_road + 10] - left_line[top_road + 10];
-        if (traverse_left_f2_y - traverse_right_f2_y < 4 && traverse_left_f2_y - traverse_right_f2_y > -4 &&
-            right_line[traverse_right_f2_y] - left_line[traverse_left_f2_y] > 40)
-        {
-            if (get_straight_line(left_line, NEAR_LINE - 20, traverse_left_f2_y, 5) == 0 && traverse_left_f2_y - top_road < 10 &&
-                get_straight_line(right_line, NEAR_LINE - 20, traverse_right_f2_y, 5) == 0 && traverse_right_f2_y - top_road < 10 &&
-                my_road[traverse_left_f2_y - 5].white_num <= 1 && my_road[traverse_right_f2_y - 5].white_num <= 1)
-            {
-                traverse_ok = 1;
-            }
-        }
-    }
-    if (traverse_left_f2_y == 0 && traverse_right_f2_y == 0)
-    {
-        traverse_width = right_line[top_road + 10] - left_line[top_road + 10];
-        traverse_ok = 1;
-    }
-    for (uint8_t i = top_road; i < top_road + 8; i++)
-    {
-        if (my_road[i].white_num > 1)
-        {
-            traverse_white_num++;
-        }
-    }
-    if (traverse_ok == 1 && traverse_left_side_y == 0 && traverse_right_side_y == 0 && top_road > 12
-        && my_road[top_road - 1].white_num <= 1 && traverse_white_num < 2 && aboutround_width_larger == 0 && white_larger == 0 && toproad_width_u < 5 &&
-        roundabout_num >= traverse_round_d && cross_num >= traverse_cross_d && traverse_num < traverse_u && traverse_width > 40)
-    {
-        step = traverse;
-        traverse_state = 1;
-    }
-}
 //单边桥判断
 void single_side_bridge_judge(uint8_t start, uint8_t end)
 {
@@ -2326,8 +2036,6 @@ void single_side_bridge_judge2(uint8_t start)
         }
     }
 
-    traverse_left_f2_y2 = single_side_right_f2_y;
-    traverse_right_f2_y2 = single_side_left_f2_y;
     if (single_side_white_smller >= 6 && single_side_left_f2_y >= 5 && single_side_right_f2_y >= 5 &&
         single_left_side_y == 0 && single_right_side_y == 0 && ok1 == 0 && ok2 == 0 && road_max <= 5 && black_duty > 0.38 &&
         ((single_side_left_f2_y - single_side_right_f2_y) >= 4 || (single_side_left_f2_y - single_side_right_f2_y) <= -4) &&
@@ -2354,85 +2062,7 @@ void single_side_bridge_judge2(uint8_t start)
     //printf("single_side_white_smller = %d,single_side_left_f2_y = %d,single_side_right_f2_y = %d\nsingle_left_side_y = %d,single_right_side_y = %d,ok1 = %d, road_max = %d,black_duty = %f\n", 
     //    single_side_white_smller, single_side_left_f2_y, single_side_right_f2_y, single_left_side_y, single_right_side_y, ok1 ,road_max,black_duty);
 }
-//坡道
-void ramp_judge(uint8_t start, uint8_t end)
-{
-    uint8_t right_line_temp[NEAR_LINE + 1];
-    uint8_t left_line_temp[NEAR_LINE + 1];
-    int8_t right_line_dis_max = 0;
-    int8_t left_line_dis_max = 0;
-    get_line_b_and_k(right_line, start, end, right_line_datas);
-    get_line_b_and_k(left_line, start, end, left_line_datas);
-    get_line(right_line_temp, start, end, right_line_datas[0], right_line_datas[1]);
-    get_line(left_line_temp, start, end, left_line_datas[0], left_line_datas[1]);
-    for (uint8_t i = start; i > end; i--)
-    {
-        if (right_line[i] - right_line_temp[i] <= right_line_dis_max)
-        {
-            ramp_right_f2_y = i;
-            right_line_dis_max = right_line[i] - right_line_temp[i];
-        }
-        if (left_line[i] - left_line_temp[i] >= left_line_dis_max)
-        {
-            ramp_left_f2_y = i;
-            left_line_dis_max = left_line[i] - left_line_temp[i];
-        }
-    }
-    if (right_line_dis_max > -2 || right_line_dis_max < -7)
-    {
-        ramp_right_f2_y = 0;
-    }
-    if (left_line_dis_max < 2 || left_line_dis_max > 8)
-    {
-        ramp_left_f2_y = 0;
-    }
-    if (ramp_left_f2_y != 0)
-    {
-        if (get_straight_line(left_line, start, ramp_left_f2_y, 5) != 0 || get_straight_line(left_line, ramp_left_f2_y, end, 5) != 0)
-        {
-            ramp_left_f2_y = 0;
-        }
-    }
-    if (ramp_right_f2_y != 0)
-    {
-        if (get_straight_line(right_line, start, ramp_right_f2_y, 5) != 0 || get_straight_line(right_line, ramp_right_f2_y, end, 5) != 0)
-        {
-            ramp_right_f2_y = 0;
-        }
-    }
-    if (ramp_left_f2_y != 0 && ramp_right_f2_y != 0)
-    {
-        left_line_datas[0] = (float)(left_line[ramp_left_f2_y] - left_line[NEAR_LINE]) / (ramp_left_f2_y - NEAR_LINE);
-        right_line_datas[0] = (float)(right_line[ramp_right_f2_y] - right_line[NEAR_LINE]) / (ramp_right_f2_y - NEAR_LINE);
-    }
-    if (ramp_left_f2_y < top_road + 5 || ramp_right_f2_y < top_road + 5)
-    {
-        ramp_right_up_k = 0;
-        ramp_left_up_k = 0;
-    }
-    else if (ramp_left_f2_y < top_road + 10 || ramp_right_f2_y < top_road + 10)
-    {
-        ramp_left_up_k = (float)(left_line[ramp_left_f2_y] - left_line[top_road + 1]) / (ramp_left_f2_y - top_road - 1);
-        ramp_right_up_k = (float)(right_line[ramp_right_f2_y] - right_line[top_road + 1]) / (ramp_left_f2_y - top_road + 1);
-    }
-    else
-    {
-        ramp_left_up_k = (float)(left_line[ramp_left_f2_y - 3] - left_line[ramp_left_f2_y - 10]) / 7;
-        ramp_right_up_k = (float)(right_line[ramp_right_f2_y - 3] - right_line[ramp_right_f2_y - 10]) / 7;
-    }
-    if (fabs(left_line_datas[0] - ramp_left_up_k) + fabs(right_line_datas[0] - ramp_right_up_k) < 2 && (ramp_right_f2_y > ramp_y_d || ramp_left_f2_y > ramp_y_d) &&
-        fabs(left_line_datas[0] - ramp_left_up_k) < 1 && fabs(right_line_datas[0] - ramp_right_up_k) < 1 &&
-        top_road < 20 && ramp_right_f2_y < 60 && ramp_left_f2_y < 60 && ramp_right_f2_y != 0 && ramp_left_f2_y != 0
-        && fabs(left_line_datas[0] - ramp_left_up_k) + fabs(right_line_datas[0] - ramp_right_up_k) > 0.5 && left_line_datas[0] - ramp_left_up_k < -0.1 &&
-        right_line_datas[0] - ramp_right_up_k > 0.1 &&
-        roundabout_num >= ramp_round_d && cross_num >= ramp_cross_d && ramp_num < ramp_u)
-    {
-        step = ramp;
-        ramp_state = 1;
-    }
-    //printf("left_line_dis_max = %d,right_line_dis_max = %d\nramp_left_f2_y = %d,ramp_right_f2_y = %d\n", left_line_dis_max, right_line_dis_max, ramp_left_f2_y, ramp_right_f2_y);
-    //printf("left_k = %f,right_k = %f,left_ramp_k = %f,right_ramp_k = %f\n", left_line_datas[0], right_line_datas[0], ramp_left_up_k, ramp_right_up_k);
-}
+
 //判断弯道，进入弯道状态机
 void bend_judge(void)
 {
@@ -2551,14 +2181,14 @@ void state_judge()
     }
     switch (step)
     {
-    case strai: {
+    case strai: 
+    {
         roundabout_judge(NEAR_LINE - 25, top_road + 10);
         if (step != right_roundabout && step != left_roundabout)
         {
             crossing_judge(NEAR_LINE - 15, top_road + 5);
             if (step != cross)
             {
-                zebra_judge(NEAR_LINE - 20, top_road + 5);
                 if (step != zebra)
                 {
                     if (element_ok == 0)
@@ -2574,27 +2204,7 @@ void state_judge()
                         single_side_bridge_judge2(NEAR_LINE - 20);
                         if (step != single_side)
                         {
-#if ADS
-                            //if (image_para2.I == 1)single_side_bridge_judge(50, top_road + 5);
-#else 
                             single_side_bridge_judge(50, top_road + 5);
-#endif
-                        }
-                        if (step != single_side)
-                        {
-                            traverse_brige_judge();
-                            if (step != traverse)
-                            {
-                                roadblock_judge(NEAR_LINE - 20, top_road + 5);
-                                if (step != right_roadblock && step != left_roadblock)
-                                {
-                                    ramp_judge(NEAR_LINE - 10, top_road + 12);
-                                    if (step != ramp)
-                                    {
-                                        step = strai;
-                                    }
-                                }
-                            }
                         }
                     }
                     else
@@ -2608,87 +2218,11 @@ void state_judge()
                             single_side_bridge_judge(50, top_road + 5);
 #endif
                         }
-                        if (step != single_side)
-                        {
-                            if (element_sort % 10 == 3)
-                            {
-                                traverse_brige_judge();
-                            }
-                            if (step != traverse)
-                            {
-                                if (element_sort % 10 == 2)
-                                {
-                                    roadblock_judge(NEAR_LINE - 20, top_road + 5);
-                                }
-                                if (step != right_roadblock && step != left_roadblock)
-                                {
-                                    ramp_judge(NEAR_LINE - 10, top_road + 12);
-                                    if (step != ramp)
-                                    {
-                                        step = strai;
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
         }
     }break;
-    case traverse: {
-        if (traverse_state == 1 && traverse_on == 1)
-        {
-            roundabout_judge(NEAR_LINE - 20, top_road + 10);
-            if (step != right_roundabout && step != left_roundabout)
-            {
-                crossing_judge(NEAR_LINE - 15, top_road + 5);
-                if (step != cross)
-                {
-                    zebra_judge(NEAR_LINE - 20, top_road + 5);
-                    if (step != zebra)
-                    {
-                        single_side_bridge_judge2(NEAR_LINE - 5);
-                        if (step != single_side)
-                        {
-#if ADS
-                            //if (image_para2.I == 1)single_side_bridge_judge(50, top_road + 5);
-#else
-                            single_side_bridge_judge(50, top_road + 5);
-#endif
-                        }
-                    }
-                }
-            }
-        }
-    }break;
-    case cross: {
-        if (cross_state == 4)
-        {
-            cross4_dian();
-            if (yuansu_state != single_side)
-            {
-                if (right_guai_H2 <= left_guai_H2)
-                {
-                    single_side_bridge_judge2(right_guai_H2 - 5);
-                }
-                else if (left_guai_H2 < right_guai_H2)
-                {
-                    single_side_bridge_judge2(left_guai_H2 - 5);
-                }
-            }
-        }
-    }break;
-    case left_roadblock: {
-
-    }break;
-    case right_roadblock: {
-
-    }break;
-                        //case ramp: {
-                        //    ramp_judge(NEAR_LINE - 10, top_road + 5);
-
-                        //}
-                        break;
     }
 }
 ////////////////////////////////////////////
@@ -3551,60 +3085,6 @@ void right_roundabout_road_choose(uint8_t* road_continue)
         road_continue[i] = j_continue;
     }
 }
-void traverse_bridge_get_twp_line(uint8_t* road_continue)
-{
-    uint8_t i_start = NEAR_LINE;
-    uint8_t i_start2 = 0;
-    uint8_t i_start3 = 0;
-    uint8_t i_end = FAR_LINE;
-    uint8_t mmmm = 0;
-    //记录连贯区域编号
-    for (uint8_t i = i_start; i > i_end; i--)
-    {
-        //如果相连编号大于该行白条数，非正常，从此之后都MISS
-        if (road_continue[i] > my_road[i].white_num)
-        {
-            road_continue[i - 1] = MISS;
-            i_start2 = i;
-            traverse_near_road = i;
-            break;
-        }
-        else
-        {
-            road_continue[i - 1] = find_continue(i, road_continue[i]);
-        }
-    }
-    for (uint8_t i = i_start2; i > i_end; i--)
-    {
-        for (uint8_t j = 1; j <= my_road[i].white_num; j++)
-        {
-            if (my_road[i].connected[j].left < CAMERA_W / 2 && my_road[i].connected[j].right > CAMERA_W / 2)
-            {
-                i_start3 = i;
-                road_continue[i] = j;
-                traverse_top_road = i;
-                mmmm = 1;
-                break;
-            }
-        }
-        if (mmmm == 1)
-        {
-            break;
-        }
-    }
-    for (uint8_t i = i_start3; i > i_end; i--)
-    {
-        //如果相连编号大于该行白条数，非正常，从此之后都MISS
-        if (road_continue[i] > my_road[i].white_num)
-        {
-            road_continue[i - 1] = MISS;
-        }
-        else
-        {
-            road_continue[i - 1] = find_continue(i, road_continue[i]);
-        }
-    }
-}
 void single_side_bridge_two_line(uint8_t* road_continue)
 {
     uint8_t white_length;//记录白色的长度
@@ -3656,128 +3136,6 @@ void single_side_bridge_two_line(uint8_t* road_continue)
                 }
             }
             road_continue[i] = j_con;
-        }
-    }
-}
-//横断桥二次选道
-void traverse_bridge_road_choose()
-{
-    top_road = NEAR_LINE;//赛道最高处所在行数，先初始化话为最低处
-    all_range* twhite_range = NULL;
-    road* tmy_road = NULL;
-    uint8_t istart = NEAR_LINE;
-    uint8_t iend = FAR_LINE;
-    uint8_t istart2 = 0;
-    uint8_t istart3 = 0;
-    uint8_t mmmm = 0;
-    int while_range_num = 0, roud_while_range_num = 0;
-    int road_f = -1;//赛道所在连通域父节点编号，先初始化为-1，以判断是否找到赛道
-    //首先先找到该路道截止到第几行
-    for (int i = 1; i <= white_range[istart].num; i++)
-    {
-        if (traverse_mode == 3 || traverse_mode == 4)
-        {
-            if (white_range[istart].area[i].left <= CAMERA_W / 2 + 40
-                && white_range[istart].area[i].right >= CAMERA_W / 2 - 40 && (white_range[istart].area[i].right - white_range[istart].area[i].left) >= 40)
-            {
-                road_f = find_f(white_range[istart].area[i].connect_num);
-            }
-        }
-        if (traverse_mode == 1)
-        {
-            if (white_range[istart].area[i].left >= CAMERA_W / 2
-                && (white_range[istart].area[i].right - white_range[istart].area[i].left) >= 10)
-                road_f = find_f(white_range[istart].area[i].connect_num);
-        }
-        if (traverse_mode == 2)
-        {
-            if (white_range[istart].area[i].right <= CAMERA_W / 2
-                && (white_range[istart].area[i].right - white_range[istart].area[i].left) >= 10)
-                road_f = find_f(white_range[istart].area[i].connect_num);
-        }
-    }
-
-
-
-
-    for (uint8_t i = istart; i >= iend; i--)
-    {
-        //变量保存，避免之后写的冗杂且低效
-        uint8_t nnnn = 0;
-        twhite_range = &white_range[i];
-        tmy_road = &my_road[i];
-        while_range_num = twhite_range->num;//每行白条数量
-        tmy_road->white_num = 0;
-        roud_while_range_num = 0;
-        if (white_range[i].num == 0)
-        {
-            istart2 = i;
-            mmmm = 1;
-            break;
-        }
-        for (uint8_t j = 1; j <= while_range_num; j++)
-        {
-            if (find_f(twhite_range->area[j].connect_num) == road_f)
-            {
-                tmy_road->white_num++; roud_while_range_num++;
-                tmy_road->connected[roud_while_range_num].left = twhite_range->area[j].left;
-                tmy_road->connected[roud_while_range_num].right = twhite_range->area[j].right;
-                tmy_road->connected[roud_while_range_num].width = twhite_range->area[j].right - twhite_range->area[j].left;
-                nnnn++;
-            }
-            else if (j == while_range_num && nnnn == 0)
-            {
-                istart2 = i;
-                mmmm = 1;
-                break;
-            }
-        }
-        if (mmmm == 1)
-        {
-            break;
-        }
-    }
-    for (uint8_t i = istart2; i > iend; i--)
-    {
-        //变量保存，避免之后写的冗杂且低效
-        twhite_range = &white_range[i];
-        tmy_road = &my_road[i];
-        while_range_num = twhite_range->num;//每行白条数量
-        tmy_road->white_num = 0;
-        roud_while_range_num = 0;
-        for (uint8_t j = 1; j <= white_range[i].num; j++)
-        {
-            if (white_range[i].area[j].left < CAMERA_W / 2 &&
-                white_range[i].area[j].right > CAMERA_W / 2 && (white_range[i].area[j].right - white_range[i].area[j].left) > 25)
-            {
-                istart3 = i;
-                mmmm = 2;
-                road_f = find_f(white_range[i].area[j].connect_num);
-                break;
-            }
-        }
-        if (mmmm == 2)
-        {
-            break;
-        }
-    }
-    for (int i = istart3; i > iend; i--)
-    {
-        //变量保存，避免之后写的冗杂且低效
-        twhite_range = &white_range[i];
-        tmy_road = &my_road[i];
-        while_range_num = twhite_range->num;//每行白条数量
-        tmy_road->white_num = 0;
-        roud_while_range_num = 0;
-        for (int j = 1; j <= while_range_num; j++)
-        {
-            if (find_f(twhite_range->area[j].connect_num) == road_f)
-            {
-                tmy_road->white_num++; roud_while_range_num++;
-                tmy_road->connected[roud_while_range_num].left = twhite_range->area[j].left;
-                tmy_road->connected[roud_while_range_num].right = twhite_range->area[j].right;
-                tmy_road->connected[roud_while_range_num].width = twhite_range->area[j].right - twhite_range->area[j].left;
-            }
         }
     }
 }
@@ -4527,11 +3885,7 @@ void find_road1()
 }
 void find_road_state()
 {
-    if (step == traverse && (traverse_state == 2 || traverse_state == 3))
-    {
-        traverse_bridge_road_choose();
-    }
-    else if (step == single_side)
+    if (step == single_side)
     {
         single_side_road_choose();
     }
@@ -4621,19 +3975,8 @@ void ordinary_two_line(void)
         }
     }
     j_continue[i_start] = j_start;
-    if ((step == left_roundabout && roundabout_state == 3) || (step == right_roundabout && (roundabout_state == 8 || roundabout_state == 7 || roundabout_state == 2 || roundabout_state == 9)))
-    {
-        left_roundabout_road_choose(j_continue);
-    }
-    else if ((step == right_roundabout && roundabout_state == 3) || (step == left_roundabout && (roundabout_state == 8 || roundabout_state == 7 || roundabout_state == 9 || roundabout_state == 2)))
-    {
-        right_roundabout_road_choose(j_continue);
-    }
-    else if (step == traverse && traverse_state == 2)
-    {
-        traverse_bridge_get_twp_line(j_continue);
-    }
-    else if (step == single_side)
+    
+    if (step == single_side)
     {
         single_side_bridge_two_line(j_continue);
     }
@@ -4766,30 +4109,12 @@ void datas_init()
     width_narrow_y = 0;
     width_narrow_num = 0;
     road_max = 0;
-    roadblock_left_guai_y = 0;
-    roadblock_right_guai_y = 0;
-    roadblock_left_guai_y2 = 0;
-    roadblock_right_guai_y2 = 0;
-    traverse_left_f2_y = 0;
-    traverse_right_f2_y = 0;
-    traverse_left_side_y = 0;
-    traverse_right_side_y = 0;
-    traverse_top_road = 0;
-    traverse_near_road = 0;
     left_f2_y = 0;//左边线二阶导拐点
     right_f2_y = 0;//右边线二阶导拐点
     left_guai_H = 0;//左下边界拐点
     right_guai_H = 0;//右下边界拐点
     left_guai_H2 = 0;//左上边界拐点
     right_guai_H2 = 0;//右上边界拐点
-    ramp_left_f2_max = 0;
-    ramp_right_f2_max = 0;
-    ramp_left_f2_y = 0;
-    ramp_right_f2_y = 0;
-    ramp_left_up_k = 0;
-    ramp_right_up_k = 0;
-    ramp_right_f2_min = 0;
-    ramp_left_f2_max = 0;
     left_line_datas[0] = 0;
     right_line_datas[0] = 0;
     single_left_side_y = 0;
@@ -4830,15 +4155,10 @@ void print_f()
     printf("top_road = %d\n", top_road);
     printf("aboutround_left_y = %d, aboutround_right_y = %d\naboutround_left_f2_y = %d, aboutround_right_f2_y = %d\naboutround_width_larger = %d\n",
         aboutround_left_y, aboutround_right_y, aboutround_left_f2_y, aboutround_right_f2_y, aboutround_width_larger);
-    printf("roadblock_left_guai_y = %d, roadblock_right_guai_y = %d\nroadblock_left_guai_y2 = %d, roadblock_right_guai_y2 = %d\n",
-        roadblock_left_guai_y, roadblock_right_guai_y, roadblock_left_guai_y2, roadblock_right_guai_y2);
-    printf("traverse_left_f2_y = %d, traverse_right_f2_y = %d\n横断桥上y = %d, 横断桥下y = %d\n", traverse_left_f2_y, traverse_right_f2_y, traverse_top_road, traverse_near_road);
     printf("single_left_f2_y = %d,single_right_f2_y = %d\n", single_side_left_f2_y, single_side_right_f2_y);
     printf("cross_left_y = %d, cross_right_y = %d\n", cross_left_y, cross_right_y);
     printf("road_max = %d, width_narrow_num = %d， width_narrow_y = %d\n", road_max, width_narrow_num, width_narrow_y);
     printf("left_f2_y = %d, right_f2_y = %d\n", left_f2_y, right_f2_y);
-    printf("左边最大二阶导 = %d，右边最小二阶导 = %d\n左边最大二阶导对应y值 = %d, 右边最小二阶导对应y值 = %d\n",
-        ramp_left_f2_max, ramp_right_f2_max, ramp_left_f2_y, ramp_right_f2_y);
     printf("mid_line[前瞻] = %d\n", mid_line[35]);
 }
 
