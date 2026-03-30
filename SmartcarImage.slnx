@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="SmartcarImage.vcxproj" Id="e9295457-3a79-4668-a23c-51ec1306dbfe" />
+</Solution>
