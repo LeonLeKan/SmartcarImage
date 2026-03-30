@@ -161,9 +161,7 @@ uint8_t mid(uint8_t i);
 void find_all_connect_easy();
 void get_line_easy();
 uint8_t GetOTSU_part(uint8_t* imageInput, uint8_t height_far, uint8_t height_near, uint8_t widthleft, uint8_t widthright);
-uint8_t Iteration_Threshould(uint8_t* imageInput, uint8_t BlackThres, uint8_t height_far, uint8_t height_near, uint8_t width_left, uint8_t width_right);
 void sobel(uint8_t* imageInput, uint8_t* imageOut, uint8_t Theshold, uint8_t height_far, uint8_t height_near, uint8_t width_left, uint8_t width_right);
-uint8_t Get_threshold_part(uint8_t* imageInput, uint8_t height_far, uint8_t height_near, uint8_t width_left, uint8_t width_right);
 void print_f(void);//打印数值的函数
 void datas_init(void);
 void get_white_threshold_avg(void);
