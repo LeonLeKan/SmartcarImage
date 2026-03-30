@@ -3,46 +3,6 @@
 #define MT_ROUT ATOM1_CH2_P33_11
 #define MT_LOUT ATOM2_CH4_P33_12
 #define MT_LIN ATOM1_CH5_P32_4
-#if ADS
-uint32  out_check_flag = 0;
-uint8_t* fullBuffer = &mt9v03x_image[0][0];
-uint8_t black_check = 0;
-uint8_t LED1_state;
-uint8_t LED2_state;
-uint8_t LED3_state;
-uint8_t LED4_state;
-void out_check()
-{
-    uint8_t left_judge = 74;
-    uint8_t right_judge = 114;
-    black_check = 0;
-    for (int i = NEAR_LINE - 5; i > NEAR_LINE - 10; i--) {
-        for (int j = left_judge; j <= right_judge; j++) {
-            if (IMG[i][j] == black) {
-                black_check += 1;
-                if (black_check >= 180)
-                {
-                    //stop_flag = 500;
-
-                }
-            }
-        }
-    }
-}
-//void state_light(uint8_t num)
-//{
-//    LED1_state = !(num >> 0 & 1);
-//    LED2_state = !(num >> 1 & 1);
-//    LED3_state = !(num >> 2 & 1);
-//    LED4_state = !(num >> 3 & 1);
-//    gpio_set_level(LED1, !LED1_state);
-//    gpio_set_level(LED2, !LED2_state);
-//    gpio_set_level(LED3, !LED3_state);
-//    gpio_set_level(LED4, !LED4_state);
-//}
-#else
-
-#endif
 
 int f[10 * CAMERA_H];//考察连通域联通性
 //每个白条子属性
