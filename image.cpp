@@ -1,8 +1,8 @@
 #include "image.h"
-#define MT_RIN ATOM1_CH1_P33_9
-#define MT_ROUT ATOM1_CH2_P33_11
-#define MT_LOUT ATOM2_CH4_P33_12
-#define MT_LIN ATOM1_CH5_P32_4
+
+#if ONBOARD
+uint8_t* fullBuffer = &mt9v03x_image[0][0];
+#endif
 
 int f[10 * CAMERA_H];//考察连通域联通性
 //每个白条子属性
@@ -3414,7 +3414,7 @@ void image_main()
     ordinary_two_line();
     mid_update = 0;
     get_mid_line();
-#if ADS
+#if ONBOARD
 #else
     for (int i = NEAR_LINE; i >= FAR_LINE; i--)
     {

@@ -1,15 +1,14 @@
 #ifndef _IMAGE_H
 #define _IMAGE_H
 
-#define ADS 0
+#define ONBOARD 0
 
-#if ADS
+#if ONBOARD
 
 #include "zf_common_headfile.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "ctrl.h"
 extern uint32 out_check_flag;
 #else
 
@@ -68,6 +67,7 @@ extern uint32 out_check_flag;
 extern int error;
 extern int error_calc_near_line;
 extern int error_calc_far_line;
+extern uint8_t single_side_state;
 
 extern uint8_t IMG[CAMERA_H][CAMERA_W];//二值化后图像数组
 //extern uint8_t image_Buffer_0[CAMERA_H][CAMERA_W];
