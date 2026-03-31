@@ -77,59 +77,14 @@ extern uint8_t left_line[CAMERA_H], right_line[CAMERA_H];
 extern uint8_t threshold_1;
 extern uint8_t threshold_2;
 extern uint8_t top_road;
-extern uint8_t roundabout_state;
-extern uint8_t traverse_state;
-extern uint8_t traverse_near_road;
 extern uint8_t bend_state;
-//菜单可调数据
-extern uint8_t cross_judge_end;
-extern uint8_t s_state;
-extern uint8_t black_check;
-extern uint8_t traverse_on;
-extern uint8_t traverse_flag;
-extern float traverse_angle;
-extern uint8_t mid_update;
-extern uint8_t gray_dis;
-extern uint8_t single_place;
-extern uint8_t right_pianyi;
-extern uint8_t left_pianyi;
-//元素计数
-extern uint8_t traverse_num;
-extern uint8_t cross_num;
-extern uint8_t roundabout_num;
-extern uint8_t ramp_num;
-extern uint8_t single_num;
-extern uint8_t zebra_num;
 
-extern uint8_t single_straight_flag;
-extern uint8_t single_block_d;
-extern uint8_t single_round_d;//在第几个环岛后开始判单边桥
-extern uint8_t single_cross_d;//在过环岛后第几个十字后开始判单边桥
-extern uint8_t single_u;//最多判几次单边桥
-extern uint8_t traverse_round_d;//在第几个环岛后开始判横断桥
-extern uint8_t traverse_cross_d;//在过环岛后第几个十字后开始判横断桥
-extern uint8_t traverse_u;//最多判几次横断桥
-extern uint8_t ramp_round_d;//在经过第几个环岛后开始判坡道
-extern uint8_t ramp_cross_d;//在经过环岛后第几个十字后开始判坡道
-extern uint8_t ramp_u;//坡道上限
 
 extern uint8_t threshold_mode;
 extern int8_t threshold_minus1;
 extern int8_t threshold_minus2;
 extern uint8_t traverse_mode;
 
-//新增参数
-extern uint8_t zebra_round_d;
-extern uint8_t zebra_cross_d;
-extern uint8_t aboutround_fps_up;
-extern uint8_t right_guai_H;
-extern uint8_t ramp_end;
-extern uint8_t cross_state;
-
-//环岛
-extern float round_k;//表示向右移动的距离倍数
-extern uint8_t round_b;
-extern uint8_t round_b2;
 
 //属于赛道的每个白条子属性
 typedef struct {
