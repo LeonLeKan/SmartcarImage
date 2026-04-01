@@ -64,26 +64,30 @@ extern uint32 out_check_flag;
 #define ramp             9
 ////////////////////////////
 
+typedef enum {
+    NORM,
+    SINGLE_SIDE,
+    FRONT_STAIRS,
+    BACK_STAIRS,
+    JOLT
+}element_t;
+
+//////////////////////// 传给控制 ////////////////////
+// 1-单边桥 2-三级跳 3-下三级 4-颠簸路段
+extern element_t now_element;
+extern int stair_distance;     // 到下一级台阶的距离
+extern bool out_flag;      // 是否出白色赛道（用于判断元素结束）
 extern int error;
 extern int error_calc_near_line;
 extern int error_calc_far_line;
-extern uint8_t single_side_state;
+extern uint8_t threshold; //阈值
+//////////////////////// ////////// //////////////////
 
 extern uint8_t IMG[CAMERA_H][CAMERA_W];//二值化后图像数组
 //extern uint8_t image_Buffer_0[CAMERA_H][CAMERA_W];
 extern uint8_t* fullBuffer;//指向灰度图的首地址
 extern uint8_t mid_line[CAMERA_H];
 extern uint8_t left_line[CAMERA_H], right_line[CAMERA_H];
-extern uint8_t threshold_1;
-extern uint8_t threshold_2;
-extern uint8_t top_road;
-extern uint8_t bend_state;
-
-
-extern uint8_t threshold_mode;
-extern int8_t threshold_minus1;
-extern int8_t threshold_minus2;
-extern uint8_t traverse_mode;
 
 
 //属于赛道的每个白条子属性

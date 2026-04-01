@@ -19,20 +19,20 @@ typedef struct {
     range   area[white_num_MAX];//该行各白条区域
 }all_range;
 
-typedef enum {
-    NORM,
-    SINGLE_SIDE,
-    FRONT_STAIRS,
-    BACK_STAIRS,
-    JOLT
-}element_t;
 
+
+//////////////////////// 传给控制 ////////////////////
 // 1-单边桥 2-三级跳 3-下三级 4-颠簸路段
 element_t now_element;
-int stair_distance;
+int stair_distance;     // 到下一级台阶的距离
+bool out_flag = 0;      // 是否出白色赛道（用于判断元素结束）
 int error = 0;
 int error_calc_near_line = 42;
 int error_calc_far_line = 40;
+uint8_t threshold = 230;    //阈值
+//////////////////////// ////////// //////////////////
+
+
 
 uint8_t road_start = NEAR_LINE;
 uint8_t road_end = FAR_LINE;
@@ -74,11 +74,6 @@ uint8_t single_start_fps = 0;
 uint8_t single_start_fps_up;
 float single_dis = 0;
 
-
-//关于阈值
-uint8_t threshold = 230;
-uint8_t mid_divide = 94;
-uint8_t up_divide = NEAR_LINE / 2;
 
 //补线需要的数据
 uint8_t left_guai_H = 0;//左下边界拐点
@@ -3281,7 +3276,22 @@ void calc_stair_distance()
 
 void out_check()
 {
-    
+    int white_count = 0;
+    for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
+    {
+        for (int j = 64; j <= 124; j++)
+        {
+            if(IMG[i][j])
+                white_count++;
+        }
+    }
+    if (white_count < 600)
+    {
+        out_flag = 1;
+    }
+    else {
+        out_flag = 0;
+    }
 }
 
 ////////////////////////////////////////////
@@ -3292,9 +3302,10 @@ void out_check()
 ///////////////////////////////////////////
 void image_main()
 {
-
+#if ONBOARD
+#else 
     now_element = FRONT_STAIRS;
-
+#endif
     datas_init();
     THRE();
     head_clear();
@@ -3326,6 +3337,7 @@ void image_main()
         break;
     case FRONT_STAIRS:
         calc_stair_distance();
+        out_check();
         break;
     }
 
@@ -3343,7 +3355,7 @@ void image_main()
     //print_f();
 #if ONBOARD
 #else
-    printf("%d\n", stair_distance);
+    printf("%d %d\n", stair_distance, out_flag);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;
