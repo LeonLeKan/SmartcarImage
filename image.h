@@ -115,8 +115,6 @@ void image_main(void);
 uint8_t mid(uint8_t i);
 void find_all_connect_easy();
 void get_line_easy();
-uint8_t GetOTSU_part(uint8_t* imageInput, uint8_t height_far, uint8_t height_near, uint8_t widthleft, uint8_t widthright);
-void sobel(uint8_t* imageInput, uint8_t* imageOut, uint8_t Theshold, uint8_t height_far, uint8_t height_near, uint8_t width_left, uint8_t width_right);
 void print_f(void);//打印数值的函数
 void datas_init(void);
 void get_white_threshold_avg(void);
@@ -128,9 +126,6 @@ uint8_t is_connect(road_range* new_white, road* pre_line, uint8_t continue_id);
 //====================================================判断状态函数====================================================
 
 void state_judge(void);
-void zebra_judge(uint8_t start, uint8_t end);
-void roundabout_judge(uint8_t start, uint8_t end);
-void crossing_judge(uint8_t start, uint8_t end);
 void straight_judge(uint8_t start, uint8_t end);
 void single_side_bridge_judge2(uint8_t start);
 void single_side_bridge_judge(uint8_t start, uint8_t end);
@@ -139,15 +134,11 @@ void bend_judge(void);
 //===================================================各元素状态机=================================================
 
 void general_judgement(void);
-void cross_state_machine(void);
 void single_side_bridge_state_machine(void);
 void straight(void);
 void bend(uint8_t start);
 
 //====================================================选道====================================================
-
-void left_roundabout_road_choose(uint8_t* road_continue);                             //左环岛选道
-void right_roundabout_road_choose(uint8_t* road_continue);                            //右环岛选道
 void renew_road(void);                                                                //按中间选道
 void single_side_road_choose(void);                                                   //单边桥选两边
 void single_side_bridge_two_line(uint8_t* road_continue);

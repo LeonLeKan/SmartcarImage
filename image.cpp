@@ -23,8 +23,8 @@ typedef struct {
 
 
 int error = 0;
-int error_calc_near_line = 77;
-int error_calc_far_line = 75;
+int error_calc_near_line = 42;
+int error_calc_far_line = 40;
 
 all_range white_range[CAMERA_H];//所有白条子
 road my_road[CAMERA_H];//赛道
@@ -66,18 +66,9 @@ float single_dis = 0;
 
 
 //关于阈值
-uint8_t threshold_1 = 200;//中间部分阈值，左上阈值
-uint8_t threshold_2 = 200;//边缘部分阈值，右上阈值
-uint8_t threshold_3 = 200;//左下阈值
-uint8_t threshold_4 = 200;//右下阈值
+uint8_t threshold = 230;
 uint8_t mid_divide = 94;
 uint8_t up_divide = NEAR_LINE / 2;
-uint8_t threshold_mode = 2;//控制阈值模式
-int8_t threshold_minus1 = 10;//大津法阈值要减的数
-int8_t threshold_minus2 = 10;//大津法阈值要减的数
-uint8_t gray_dis = 2;//去阴影
-uint8_t traverse_mode = 2;//横断桥开关，0表示跳过，1表示右边跳，2表示左边跳
-float extract_k = 0.4;
 
 //补线需要的数据
 uint8_t left_guai_H = 0;//左下边界拐点
@@ -1543,7 +1534,7 @@ void state_judge()
     }
     switch (step)
     {
-    case strai: 
+    case strai:
     {
         if (element_ok == 0)
         {
@@ -2143,112 +2134,6 @@ void two_dots_line(uint8_t dots1_H, uint8_t dots1_W, uint8_t dots2_H, uint8_t do
 
 
 
-uint8_t GetOTSU_part(uint8_t* imageInput, uint8_t height_far, uint8_t height_near, uint8_t widthleft, uint8_t widthright)
-{
-    int16_t i, j;
-    uint32_t Amount = 0;
-    uint32_t PixelBack = 0;
-    uint32_t PixelIntegralBack = 0;
-    uint32_t PixelIntegral = 0;
-    int32_t PixelIntegralFore = 0;
-    int32_t PixelFore = 0;
-    float OmegaBack, OmegaFore, MicroBack, MicroFore, SigmaB, Sigma; // 类间方差;
-    int16_t MinValue, MaxValue;
-    uint8_t Thrshold = 0;//阈值
-    uint16_t HistoGram[256] = { 0 };//灰度直方图
-    uint8_t* map = imageInput;
-    for (j = height_far; j <= height_near; j++)
-    {
-        map = imageInput + j * CAMERA_H;
-        for (i = widthleft; i < widthright; i++)
-        {
-            HistoGram[*(map + i)]++;//统计灰度级中每个像素在所选区域中的个数
-
-        }
-    }
-    for (MinValue = 0; MinValue < 256 && HistoGram[MinValue] == 0; MinValue++);        //获取最小灰度的值
-    for (MaxValue = 255; MaxValue > MinValue && HistoGram[MinValue] == 0; MaxValue--); //获取最大灰度的值
-
-    if (MaxValue == MinValue)
-    {
-        if (MaxValue > 255)
-        {
-            return 255;  // 如果 MaxValue 超出 uint8_t 范围，返回最大值 255
-        }
-        return (uint8_t)MaxValue;  // 显式转换为 uint8_t，避免隐式转换警告
-    }//图像中只有一个颜色
-    if (MinValue + 1 == MaxValue) return (uint8_t)MinValue; // 图像中只有两个颜色
-
-    for (j = MinValue; j <= MaxValue; j++)    Amount += HistoGram[j];        //  像素总数
-
-    PixelIntegral = 0;
-    for (j = MinValue; j <= MaxValue; j++)
-    {
-        PixelIntegral += HistoGram[j] * j;//灰度值总数
-    }
-    SigmaB = -1;
-    for (j = MinValue; j < MaxValue; j++)
-    {
-        PixelBack = PixelBack + HistoGram[j];    //前景像素点数
-        PixelFore = Amount - PixelBack;         //背景像素点数
-        OmegaBack = (float)PixelBack / Amount;//前景像素百分比
-        OmegaFore = (float)PixelFore / Amount;//背景像素百分比
-        PixelIntegralBack += HistoGram[j] * j;  //前景灰度值
-        PixelIntegralFore = PixelIntegral - PixelIntegralBack;//背景灰度值
-        MicroBack = (float)PixelIntegralBack / PixelBack;   //前景灰度百分比
-        MicroFore = (float)PixelIntegralFore / PixelFore;   //背景灰度百分比
-        Sigma = OmegaBack * OmegaFore * (MicroBack - MicroFore) * (MicroBack - MicroFore);//计算类间方差
-        if (Sigma > SigmaB)                    //遍历最大的类间方差g //找出最大类间方差以及对应的阈值
-        {
-            SigmaB = Sigma;
-            Thrshold = (uint8_t)j;
-        }
-        if (Sigma < SigmaB)
-            break;
-    }
-    return Thrshold;                        //返回最佳阈值
-}
-void sobel(uint8_t* imageInput, uint8_t* imageOut, uint8_t Theshold, uint8_t height_far, uint8_t height_near, uint8_t width_left, uint8_t width_right)
-{
-    int tempx = 0, tempy = 0, temp = 0, i = 1, j = 1;
-    uint8_t* imag = imageInput;
-    for (i = height_far; i <= height_near; i++)
-    {
-        imag = imageInput + i * CAMERA_W;
-        for (j = width_left; j <= width_right; j++)
-        {
-            //计算x方向
-            tempx = -*(imag - CAMERA_W + j - 1)//         {-1,0,1}
-                - 2 * (*(imag + j - 1))//                 {-2,0,2}
-                - *(imag + CAMERA_W + j - 1)  //            {-1,0,1}
-                + *(imag - CAMERA_W + j + 1)
-                + 2 * (*(imag + j + 1))
-                + *(imag + CAMERA_W + j + 1);
-            if (tempx < 0) tempx = -tempx;
-            //计算y方向
-            tempy = *imag + CAMERA_W + j - 1//           {-1,-2,-1}
-                + 2 * (*(imag + CAMERA_W + j))//          {0,0,0}
-                + *(imag + CAMERA_W + 1 + j)//            {1,2,1}
-                - *(imag - CAMERA_W - 1 + j)
-                - 2 * (*(imag - CAMERA_W + j))
-                - *(imag - CAMERA_W + 1 + j);
-            if (tempy < 0) tempy = -tempy;
-            temp = (tempx + tempy) / 2;
-            if (temp > 255) temp = 255;
-            //*(imag + i * CAMERA_W + j) = temp;
-            if (temp > Theshold)//二值化
-            {
-                *(imageOut + j + i * CAMERA_W) = white;
-
-            }
-            else
-            {
-                *(imageOut + j + i * CAMERA_W) = black;
-
-            }
-        }
-    }
-}
 ////////////////////////////////////////////
 //功能：讲道路重新进行选择
 //输入：
@@ -2520,55 +2405,18 @@ void THRE()
     uint8_t* gray_map = 0;
     uint8_t bound_thre = 0;
     map = fullBuffer;
-    
-    if (threshold_mode == 2)
+    for (int i = 0; i < 120; i++)
     {
-        threshold_1 = GetOTSU_part(fullBuffer, 1, up_divide, 1, mid_divide);//左上
-        threshold_2 = GetOTSU_part(fullBuffer, 1, up_divide, mid_divide, 188);//右上
-        threshold_3 = GetOTSU_part(fullBuffer, up_divide, NEAR_LINE, 0, mid_divide);//左下
-        threshold_4 = GetOTSU_part(fullBuffer, up_divide, NEAR_LINE, mid_divide, 188);
-        for (int i = 0; i < up_divide; i++)
+        my_map = &IMG[i][0];
+        for (int j = 0; j < 188; j++)
         {
-            my_map = &IMG[i][0];
-            for (int j = 0; j < mid_divide; j++)
-            {
-                if ((*map) > threshold_1)
-                    (*my_map) = 1;
-                else (*my_map) = 0;
-                map++;
-                my_map++;
-            }
-            for (int j = mid_divide; j < 188; j++)
-            {
-                if ((*map) > threshold_2)
-                    (*my_map) = 1;
-                else (*my_map) = 0;
-                map++;
-                my_map++;
-            }
-        }
-        for (int i = up_divide; i < 120; i++)
-        {
-            my_map = &IMG[i][0];
-            for (int j = 0; j < mid_divide; j++)
-            {
-                if ((*map) > threshold_3)
-                    (*my_map) = 1;
-                else (*my_map) = 0;
-                map++;
-                my_map++;
-            }
-            for (int j = mid_divide; j < 188; j++)
-            {
-                if ((*map) > threshold_4)
-                    (*my_map) = 1;
-                else (*my_map) = 0;
-                map++;
-                my_map++;
-            }
+            if ((*map) > threshold)
+                (*my_map) = 1;
+            else (*my_map) = 0;
+            map++;
+            my_map++;
         }
     }
-
 }
 
 /////////////
@@ -3232,7 +3080,7 @@ void ordinary_two_line(void)
         }
     }
     j_continue[i_start] = j_start;
-    
+
     if (step == single_side)
     {
         single_side_bridge_two_line(j_continue);
@@ -3377,7 +3225,7 @@ void element_check()//人机交互
 void print_f()
 {
     printf("————————————————————————————————————\n");
-    printf("threshold1 = %d,thresholds2 = %d,threshold3 = %d,threshold4 = %d\n", threshold_1, threshold_2, threshold_3, threshold_4);
+    //printf("threshold1 = %d,thresholds2 = %d,threshold3 = %d,threshold4 = %d\n", threshold_1, threshold_2, threshold_3, threshold_4);
     printf("元素状态 = %d,弯道状态 = %d,元素状态 = %d\n", step, bend_state, yuansu_state);
     printf("单边桥判断帧数 = %d, 弯道判断帧数 = %d\n", single_side_fps, bend_fps);
     printf("right_guai_H = %d , left_guai_H = %d\n", right_guai_H, left_guai_H);
