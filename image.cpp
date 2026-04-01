@@ -13,19 +13,29 @@ typedef struct {
 }range;
 
 
-
-
 //每行的所有白条子
 typedef struct {
     uint8_t   num;//每行白条数量
     range   area[white_num_MAX];//该行各白条区域
 }all_range;
 
+typedef enum {
+    NORM,
+    SINGLE_SIDE,
+    FRONT_STAIRS,
+    BACK_STAIRS,
+    JOLT
+}element_t;
 
+// 1-单边桥 2-三级跳 3-下三级 4-颠簸路段
+element_t now_element;
+int stair_distance;
 int error = 0;
 int error_calc_near_line = 42;
 int error_calc_far_line = 40;
 
+uint8_t road_start = NEAR_LINE;
+uint8_t road_end = FAR_LINE;
 all_range white_range[CAMERA_H];//所有白条子
 road my_road[CAMERA_H];//赛道
 road_range myroad_continue[NEW_CAMERA_H];
@@ -138,6 +148,7 @@ uint8_t element_cross_d = 0;
 //////////////////////////////////
 void general_judgement() {
     state_judge();
+    uint8_t bend_judge_start = (road_start < 60) ? 60 : road_start;
     switch (step)
     {
     case strai: bend(bend_judge_start); break;
@@ -2819,10 +2830,13 @@ void search_white_range1()
     uint8_t tnum = 0;//当前行白条数
     all_connect_num = 0;//白条编号初始化
     uint8_t* map = NULL;
+    bool found_road_start = 0;
+    bool found_road_end = 0;
     for (i = istart; i >= iend; i--)
     {
         map = &IMG[i][LEFT_SIDE];//指针行走加快访问速度
         tnum = 0;
+        bool found_long_white = 0;
         for (j = LEFT_SIDE; j <= RIGHT_SIDE; j++, map++)
         {
             if ((*map))//遇白条左边界
@@ -2842,10 +2856,24 @@ void search_white_range1()
                     j++;
                 }
                 now_white->right = j - 1;
+                if (now_white->right - now_white->left > 30)
+                {
+                    found_long_white = 1;
+                }
                 now_white->connect_num = ++all_connect_num;//白条数加一，给这个白条编号
             }
         }
         white_range[i].num = tnum;
+        if (!found_road_start && found_long_white)
+        {
+            found_road_start = 1;
+            road_start = i;
+        }
+        else if (!found_road_end && found_road_start && !found_long_white)
+        {
+            found_road_end = 1;
+            road_end = i;
+        }
     }
 }
 
@@ -2870,7 +2898,7 @@ void find_all_connect()
     int d_num, i_d, d_left, d_right;
     all_range* u_white = NULL;
     all_range* d_white = NULL;
-    for (int i = NEAR_LINE; i > FAR_LINE; i--)//因为每两行每两行比较 所以循环到FAR_LINE+1
+    for (int i = road_start; i > FAR_LINE; i--)//因为每两行每两行比较 所以循环到FAR_LINE+1
     {
         u_num = white_range[i - 1].num;
         d_num = white_range[i].num;
@@ -2942,7 +2970,7 @@ void find_road()
 ///////////////////////////////////////////
 void find_road1()
 {
-    uint8_t istart = NEAR_LINE;
+    uint8_t istart = road_start;
     uint8_t iend = FAR_LINE;
     //top_road = NEAR_LINE;//赛道最高处所在行数，先初始化话为最低处
     int road_f = -1;//赛道所在连通域父节点编号，先初始化为-1，以判断是否找到赛道
@@ -2952,9 +2980,12 @@ void find_road1()
     //寻找赛道所在连通域
     // 寻找最中心的白条子
     for (int i = 1; i <= white_range[istart].num; i++)
-        if (white_range[istart].area[i].left <= CAMERA_W / 2
-            && white_range[istart].area[i].right >= CAMERA_W / 2 && (white_range[istart].area[i].right - white_range[istart].area[i].left) >= 90)
+        if (white_range[istart].area[i].right - white_range[istart].area[i].left >= 40)
+        {
+
             road_f = find_f(white_range[istart].area[i].connect_num);
+            break;
+        }
 
     if (road_f == -1)//若赛道没在中间，在NEAR_LINE行选一行最长的认为这就是赛道
     {
@@ -3068,7 +3099,7 @@ void ordinary_two_line(void)
     int width_max;
 
     //寻找起始行最宽的白条子
-    i_start = NEAR_LINE;
+    i_start = road_start;
     i_end = FAR_LINE - 1;
     width_max = 0;
     for (j = 1; j <= my_road[i_start].white_num; j++)
@@ -3236,6 +3267,23 @@ void print_f()
     printf("mid_line[前瞻] = %d\n", mid_line[35]);
 }
 
+
+void calc_stair_distance()
+{
+    if (NEAR_LINE - road_start >= 2)
+    {
+        stair_distance = NEAR_LINE - road_start;
+    }
+    else {
+        stair_distance = NEAR_LINE - road_end;
+    }
+}
+
+void out_check()
+{
+    
+}
+
 ////////////////////////////////////////////
 //功能：图像处理主程序
 //输入：
@@ -3244,16 +3292,12 @@ void print_f()
 ///////////////////////////////////////////
 void image_main()
 {
+
+    now_element = FRONT_STAIRS;
+
     datas_init();
-    /*get_white_threshold_avg();
-    threshold_decrease();*/
-    /*if (gray_dis == 1)
-    {
-        threshold_add_gray();
-    }*/
     THRE();
     head_clear();
-    Reduce_Noise(&IMG[0][0], IMG);
     search_white_range1();
     find_all_connect();
     find_road_state();
@@ -3274,10 +3318,18 @@ void image_main()
 #endif 
     element_check();
     pre_step = step;
-    general_judgement();
-    get_mid_line();
+    switch (now_element)
+    {
+    case SINGLE_SIDE:
+        general_judgement();
+        get_mid_line();
+        break;
+    case FRONT_STAIRS:
+        calc_stair_distance();
+        break;
+    }
+
     mid_update = 1;
-    bend_judge();
     define_mid_255();
     int sum = 0;
     for (int i = error_calc_near_line; i >= error_calc_far_line; i--)
@@ -3289,6 +3341,9 @@ void image_main()
     if (error > 25) error = 25;
 
     //print_f();
+#if ONBOARD
+#else
+    printf("%d\n", stair_distance);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;
@@ -3301,4 +3356,5 @@ void image_main()
             IMG[i][right_line[i]] = green;
             IMG[i][mid_line[i]] = red;
         }
+#endif
 }
