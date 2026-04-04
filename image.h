@@ -76,7 +76,9 @@ typedef enum {
 // 1-单边桥 2-三级跳 3-下三级 4-颠簸路段
 extern element_t now_element;
 extern int stair_distance;     // 到下一级台阶的距离
-extern bool out_flag;      // 是否出白色赛道（用于判断元素结束）
+extern bool front_stairs_end_flag;
+extern bool back_stairs_end_flag;
+extern bool jolt_end_flag;
 extern int error;
 extern int error_calc_near_line;
 extern int error_calc_far_line;
