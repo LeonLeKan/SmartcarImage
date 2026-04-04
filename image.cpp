@@ -2963,8 +2963,8 @@ void image_main()
     switch (now_element)
     {
     case SINGLE_SIDE:
-        //mend_far_single_side();
-        //if(on_single_side_road)
+        mend_far_single_side();
+        if(on_single_side_road)
             general_judgement();
         get_mid_line();
         break;
