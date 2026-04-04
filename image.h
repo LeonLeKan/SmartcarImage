@@ -84,6 +84,7 @@ extern int error_calc_near_line;
 extern int error_calc_far_line;
 extern uint8_t threshold; //阈值
 extern uint8_t single_side_state;
+extern uint8_t mid_update;
 //////////////////////// ////////// //////////////////
 
 extern uint8_t IMG[CAMERA_H][CAMERA_W];//二值化后图像数组
@@ -182,4 +183,3 @@ void get_line_b_and_k(uint8_t* line, uint8_t start, uint8_t end, float input[]);
 void get_line(uint8_t* line, uint8_t start, uint8_t end, float k, float b);
 void define_mid_255(void);
 #endif //
-extern uint8_t step;
