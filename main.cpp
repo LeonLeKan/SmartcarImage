@@ -79,7 +79,7 @@ void create_pic_now_background(void) {
 // 加载图片
 void load_pic(void) {
 
-    path = std::format("D:/SmartcarImage/pictures/5cm_normal_1/Image{}.jpg", pic_num + 10);
+    path = std::format("D:/SmartcarImage/pictures/jolt_left/Image{}.jpg", pic_num + 120);
 
     // 使用imread替代cvLoadImage，0表示灰度加载
     pImg_1 = imread(path, IMREAD_GRAYSCALE);

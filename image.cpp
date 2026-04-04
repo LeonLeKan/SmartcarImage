@@ -2935,7 +2935,7 @@ void image_main()
 {
 #if ONBOARD
 #else 
-    now_element = SINGLE_SIDE;
+    now_element = JOLT;
 #endif
     datas_init();
     THRE();
