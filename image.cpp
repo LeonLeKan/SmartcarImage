@@ -2846,7 +2846,7 @@ void calc_stair_distance()
 }
 
 // 三级台阶补线
-void mend_stairs(uint8_t *line)
+void mend_stairs(uint8_t* line)
 {
     float input[2];
     if (NEAR_LINE - road_start >= 2)
@@ -2855,14 +2855,14 @@ void mend_stairs(uint8_t *line)
         {
             least_square_get_line(line, road_start - 8, 5, input, NEAR_LINE, road_start - 8);
         }
-		else if (road_start - road_end >= 10)
+        else if (road_start - road_end >= 10)
         {
             least_square_get_line(line, road_start - 5, 5, input, NEAR_LINE, road_start - 5);
         }
         else {
             for (int i = NEAR_LINE; i >= road_start; i--)
             {
-				line[i] = 94;
+                line[i] = 94;
             }
         }
     }
@@ -2872,12 +2872,12 @@ void mend_stairs(uint8_t *line)
         {
             uint8_t f2 = get_line_f2_forward_y(line, road_end + 20, road_end, 5, 5);
             uint8_t mend_start = min(f2 + 10, NEAR_LINE);
-			least_square_get_line(line, mend_start, min(10, mend_start - f2), input, mend_start, FAR_LINE);
+            least_square_get_line(line, mend_start, min(10, mend_start - f2), input, mend_start, FAR_LINE);
         }
         else {
             for (int i = road_end; i >= FAR_LINE; i--)
             {
-				line[i] = 94;
+                line[i] = 94;
             }
         }
     }
@@ -2961,15 +2961,14 @@ void jolt_end_check()
                 white_count++;
         }
     }
-    if (white_count < 200)
+    if (white_count < 300)
     {
         jolt_end_judge_cnt++;
-        if (jolt_end_judge_cnt > 100)
+        if (jolt_end_judge_cnt > 15)
         {
             // 达到阈值，退出JOLT状态
             jolt_end_judge_cnt = 0;
             jolt_end_flag = 1;
-            now_element = NORM;
         }
     }
     else {
@@ -3025,13 +3024,13 @@ void image_main()
     case FRONT_STAIRS:
         calc_stair_distance();
         mend_stairs(left_line);
-		mend_stairs(right_line);
+        mend_stairs(right_line);
         front_stairs_end_check();
         break;
     case BACK_STAIRS:
         calc_stair_distance();
         mend_stairs(left_line);
-		mend_stairs(right_line);
+        mend_stairs(right_line);
         back_stairs_end_check();
         break;
     case JOLT:
@@ -3043,11 +3042,17 @@ void image_main()
 
     define_mid_255();
     int sum = 0;
+    int total = 0;
     for (int i = error_calc_near_line; i >= error_calc_far_line; i--)
     {
-        sum += mid_line[i];
+        if (mid_line[i] != MISS)
+        {
+            sum += mid_line[i];
+            total++;
+        }
     }
-    error = sum / (error_calc_near_line - error_calc_far_line + 1) - 94;
+    if (total == 0) total = 1;
+    error = sum / total - 94;
     if (error < -25) error = 0;
     if (error > 25) error = 0;
 
