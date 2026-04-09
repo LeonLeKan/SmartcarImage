@@ -142,6 +142,14 @@ uint8_t element_round_d = 0;
 uint8_t element_cross_d = 0;
 
 
+inline uint8_t max(uint8_t a, uint8_t b) {
+    return (a > b) ? a : b;
+}
+
+inline uint8_t min(uint8_t a, uint8_t b) {
+    return (a < b) ? a : b;
+}
+
 //////////////////////////////////
 // 通用检测
 // 检测各种状态
@@ -2646,6 +2654,8 @@ void ordinary_two_line(void)
     uint8_t j_start = MISS;
     int width_max;
 
+    bool road_end_updated = 0;
+
     //寻找起始行最宽的白条子
     i_start = road_start;
     i_end = FAR_LINE - 1;
@@ -2672,6 +2682,11 @@ void ordinary_two_line(void)
             //如果相连编号大于该行白条数，非正常，从此之后都MISS
             if (j_continue[i] > my_road[i].white_num)
             {
+                if (!road_end_updated)
+                {
+                    road_end = i;
+                    road_end_updated = 1;
+                }
                 j_continue[i - 1] = MISS;
             }
             else
@@ -2831,36 +2846,38 @@ void calc_stair_distance()
 }
 
 // 三级台阶补线
-void mend_stairs()
+void mend_stairs(uint8_t *line)
 {
     float input[2];
     if (NEAR_LINE - road_start >= 2)
     {
-        if (road_start - road_end >= 10)
+        if (road_start - road_end >= 15)
         {
-            least_square_get_line(left_line, road_start - 5, 5, input, NEAR_LINE, road_start - 5);
-            least_square_get_line(right_line, road_start - 5, 5, input, NEAR_LINE, road_start - 5);
+            least_square_get_line(line, road_start - 8, 5, input, NEAR_LINE, road_start - 8);
+        }
+		else if (road_start - road_end >= 10)
+        {
+            least_square_get_line(line, road_start - 5, 5, input, NEAR_LINE, road_start - 5);
         }
         else {
             for (int i = NEAR_LINE; i >= road_start; i--)
             {
-                left_line[i] = 84;
-                right_line[i] = 104;
+				line[i] = 94;
             }
         }
     }
     if (road_end - FAR_LINE >= 5)
     {
-        if (road_start - road_end >= 15)
+        if (road_start - road_end >= 20)
         {
-            least_square_get_line(left_line, road_end + 10, 5, input, road_end + 10, FAR_LINE);
-            least_square_get_line(right_line, road_end + 10, 5, input, road_end + 10, FAR_LINE);
+            uint8_t f2 = get_line_f2_forward_y(line, road_end + 20, road_end, 5, 5);
+            uint8_t mend_start = min(f2 + 10, NEAR_LINE);
+			least_square_get_line(line, mend_start, min(10, mend_start - f2), input, mend_start, FAR_LINE);
         }
         else {
             for (int i = road_end; i >= FAR_LINE; i--)
             {
-                left_line[i] = 84;
-                right_line[i] = 104;
+				line[i] = 94;
             }
         }
     }
@@ -2971,7 +2988,7 @@ void image_main()
 {
 #if ONBOARD
 #else 
-    now_element = BACK_STAIRS;
+    now_element = FRONT_STAIRS;
 #endif
     // mid_update = 0;
     datas_init();
@@ -3007,12 +3024,14 @@ void image_main()
 
     case FRONT_STAIRS:
         calc_stair_distance();
-        mend_stairs();
+        mend_stairs(left_line);
+		mend_stairs(right_line);
         front_stairs_end_check();
         break;
     case BACK_STAIRS:
         calc_stair_distance();
-        mend_stairs();
+        mend_stairs(left_line);
+		mend_stairs(right_line);
         back_stairs_end_check();
         break;
     case JOLT:
