@@ -142,11 +142,11 @@ uint8_t element_round_d = 0;
 uint8_t element_cross_d = 0;
 
 
-inline uint8_t max(uint8_t a, uint8_t b) {
+static uint8_t max(uint8_t a, uint8_t b) {
     return (a > b) ? a : b;
 }
 
-inline uint8_t min(uint8_t a, uint8_t b) {
+static uint8_t min(uint8_t a, uint8_t b) {
     return (a < b) ? a : b;
 }
 
