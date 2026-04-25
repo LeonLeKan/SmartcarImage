@@ -2178,10 +2178,6 @@ void THRE()
         my_map = &IMG[i][0];
         for (int j = 0; j < 188; j++)
         {
-            if (gray_dis[i][j] > 50 && j >= 40 && j <= 140 && i >= NEAR_LINE - 10)
-            {
-                printf("%d\n", gray_dis[i][j]);
-            }
             if ((*map + gray_dis[i][j]) > threshold)
                 (*my_map) = 1;
             else (*my_map) = 0;
