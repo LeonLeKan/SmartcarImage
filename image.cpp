@@ -5,6 +5,7 @@ uint8_t* fullBuffer = &mt9v03x_image[0][0];
 #endif
 
 int f[10 * CAMERA_H];//考察连通域联通性
+uint8_t shadow_removal_array[CAMERA_H][CAMERA_W];//阴影去除数组
 //每个白条子属性
 typedef struct {
     uint8_t   left;//左边界
@@ -2818,100 +2819,141 @@ void jolt_end_check()
 ///////////////////////////////////////////
 void image_main()
 {
-#if ONBOARD
-#else 
-    now_element = SINGLE_SIDE;
-#endif
-    // mid_update = 0;
-    datas_init();
-    THRE();
-    head_clear();
-    search_white_range1();
-    find_all_connect();
-    find_road_state();
-    /*到此处为止，我们已经得到了属于赛道的结构体数组my_road[CAMERA_H]*/
-
-    ordinary_two_line();
-
-    get_mid_line();
-#if ONBOARD
-#else
-    for (int i = NEAR_LINE; i >= FAR_LINE; i--)
-    {
-        for (int j = left_line[i] + 1; j < right_line[i]; j++)
-        {
-            IMG[i][j] = purple;
-        }
-    }
-#endif 
-    element_check();
-    pre_step = step;
-    switch (now_element)
-    {
-    case SINGLE_SIDE:
-        if (!on_single_side_road)
-            mend_far_single_side();
-        else
-            general_judgement();
-        break;
-
-    case FRONT_STAIRS:
-        calc_stair_distance();
-        mend_stairs(left_line);
-        mend_stairs(right_line);
-        front_stairs_end_check();
-        break;
-    case BACK_STAIRS:
-        calc_stair_distance();
-        mend_stairs(left_line);
-        mend_stairs(right_line);
-        back_stairs_end_check();
-        break;
-    case JOLT:
-        jolt_end_check();
-        break;
-    }
-
-    get_mid_line();
-
-    define_mid_255();
-    int sum = 0;
+    int cnt = 0;
     int total = 0;
-    for (int i = error_calc_near_line; i >= error_calc_far_line; i--)
+    for (int i = 65; i <= 80; i++)
     {
-        if (mid_line[i] != MISS)
+        for(int j = 65; j <= 124; j++)
         {
-            sum += mid_line[i];
-            total++;
+            uint8_t gray_value = *(fullBuffer + i * CAMERA_W + j);
+            if (gray_value >= 130)
+            {
+				cnt++;
+				total += gray_value;
+            }
+		}
+    }
+	int avg = cnt > 0 ? total / cnt : 0;
+	printf("average gray value in the middle area: %d\n", avg);
+    // 计算去阴影数组
+	for (int i = NEAR_LINE; i >= 65; i--)
+    {
+        for(int j = LEFT_SIDE; j <= RIGHT_SIDE; j++)
+        {
+            uint8_t gray_value = *(fullBuffer + i * CAMERA_W + j);
+            if (gray_value >= 50)
+            {
+                shadow_removal_array[i][j] = avg - gray_value;
+            }
+            else
+            {
+                shadow_removal_array[i][j] = 0;
+            }
         }
     }
-    if (total == 0) total = 1;
-    error = sum / total - 94;
-    if (error < -50) error = 0;
-    if (error > 50) error = 0;
-
-    if (single_side_state)
+	//  按照格式输出去阴影数组
+    for (int i = 0; i <= NEAR_LINE; i++)
     {
-        // if (error < -5) error = -5;
-        // if (error > 5) error = 5;
-    }
-
-    mid_update = 1;
-    //print_f();
-#if ONBOARD
-#else
-    printf("dis: %d, start: %d, end: %d, error: %d\n", stair_distance, road_start, road_end, error);
-    for (int i = 0; i < CAMERA_W; i++)
-    {
-        IMG[error_calc_near_line][i] = purple;
-        IMG[error_calc_far_line][i] = purple;
-    }
-    for (int i = NEAR_LINE; i >= FAR_LINE; i--)
-        if (mid_line[i] != MISS)
+        for(int j = LEFT_SIDE; j <= RIGHT_SIDE; j++)
         {
-            IMG[i][left_line[i]] = blue;
-            IMG[i][right_line[i]] = green;
-            IMG[i][mid_line[i]] = red;
+            printf("%d, ", shadow_removal_array[i][j]);
         }
-#endif
+        printf("\n");
+	}
+//#if ONBOARD
+//#else 
+//    now_element = SINGLE_SIDE;
+//#endif
+//    // mid_update = 0;
+//    datas_init();
+//    THRE();
+//    head_clear();
+//    search_white_range1();
+//    find_all_connect();
+//    find_road_state();
+//    /*到此处为止，我们已经得到了属于赛道的结构体数组my_road[CAMERA_H]*/
+//
+//    ordinary_two_line();
+//
+//    get_mid_line();
+//#if ONBOARD
+//#else
+//    for (int i = NEAR_LINE; i >= FAR_LINE; i--)
+//    {
+//        for (int j = left_line[i] + 1; j < right_line[i]; j++)
+//        {
+//            IMG[i][j] = purple;
+//        }
+//    }
+//#endif 
+//    element_check();
+//    pre_step = step;
+//    switch (now_element)
+//    {
+//    case SINGLE_SIDE:
+//        if (!on_single_side_road)
+//            mend_far_single_side();
+//        else
+//            general_judgement();
+//        break;
+//
+//    case FRONT_STAIRS:
+//        calc_stair_distance();
+//        mend_stairs(left_line);
+//        mend_stairs(right_line);
+//        front_stairs_end_check();
+//        break;
+//    case BACK_STAIRS:
+//        calc_stair_distance();
+//        mend_stairs(left_line);
+//        mend_stairs(right_line);
+//        back_stairs_end_check();
+//        break;
+//    case JOLT:
+//        jolt_end_check();
+//        break;
+//    }
+//
+//    get_mid_line();
+//
+//    define_mid_255();
+//    int sum = 0;
+//    int total = 0;
+//    for (int i = error_calc_near_line; i >= error_calc_far_line; i--)
+//    {
+//        if (mid_line[i] != MISS)
+//        {
+//            sum += mid_line[i];
+//            total++;
+//        }
+//    }
+//    if (total == 0) total = 1;
+//    error = sum / total - 94;
+//    if (error < -50) error = 0;
+//    if (error > 50) error = 0;
+//
+//    if (single_side_state)
+//    {
+//        // if (error < -5) error = -5;
+//        // if (error > 5) error = 5;
+//    }
+//
+//    mid_update = 1;
+//    //print_f();
+//#if ONBOARD
+//#else
+//    printf("dis: %d, start: %d, end: %d, error: %d\n", stair_distance, road_start, road_end, error);
+//    for (int i = 0; i < CAMERA_W; i++)
+//    {
+//        IMG[error_calc_near_line][i] = purple;
+//        IMG[error_calc_far_line][i] = purple;
+//    }
+//    for (int i = NEAR_LINE; i >= FAR_LINE; i--)
+//        if (mid_line[i] != MISS)
+//        {
+//            IMG[i][left_line[i]] = blue;
+//            IMG[i][right_line[i]] = green;
+//            IMG[i][mid_line[i]] = red;
+//        }
+//#endif
 }
