@@ -2841,9 +2841,10 @@ void image_main()
         for(int j = LEFT_SIDE; j <= RIGHT_SIDE; j++)
         {
             uint8_t gray_value = *(fullBuffer + i * CAMERA_W + j);
-            if (gray_value >= 50)
+			int gray_diff = avg - gray_value;
+            if (gray_value >= 65 && gray_diff > 0)
             {
-                shadow_removal_array[i][j] = avg - gray_value;
+                shadow_removal_array[i][j] = gray_diff;
             }
             else
             {
