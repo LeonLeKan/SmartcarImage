@@ -1,7 +1,13 @@
 #include "image.h"
 
 #if ONBOARD
+#include "control_state.h"
 uint8_t* fullBuffer = &mt9v03x_image[0][0];
+#endif
+
+#if ONBOARD
+#else
+uint8_t follow_lock;    // 调试用
 #endif
 
 int f[10 * CAMERA_H];//考察连通域联通性
@@ -29,13 +35,31 @@ bool front_stairs_end_flag = 0;
 bool back_stairs_end_flag = 0;
 bool jolt_end_flag = 0;
 int error = 0;
-int error_calc_near_line = 42;
-int error_calc_far_line = 40;
-uint8_t threshold = 120;    //阈值
+int error_calc_near_line = 52;
+int error_calc_far_line = 50;
 bool on_single_side_road = 0;   // 是否进入单边桥之前的白色赛道
+int on_single_side_road_cnt = 0;
+
+int on_jolt_cnt = 0;
+bool on_jolt = 0;
+int jolt_distance = 0;
+
 int jolt_end_cnt_thre = 30;
+
+int back_stairs_end_cnt_thre = 15;
+uint8_t middle = 84;    // 中线校准（有些摄像头会整体向左右偏，所以真正的正中间不一定是94）
 //////////////////////// ////////// //////////////////
 
+// 二值化参数
+uint8_t THRE_HIS_LEFT = 0, THRE_HIS_RIGHT = CAMERA_W;
+uint8_t THRE_HIS_NEAR = NEAR_LINE, THRE_HIS_FAR = FAR_LINE + 20;
+// 白色赛道必须比背景亮多少
+// 背景误判多：调大；阴影下赛道断：调小
+uint8_t WHITE_GAP = 60;
+
+// 阈值下限，防止大片背景时阈值过低
+uint8_t MIN_THRE = 60;
+uint8_t MAX_THRE = 200;
 
 
 uint8_t road_start = NEAR_LINE;
@@ -47,6 +71,7 @@ uint8_t j_continue[CAMERA_H];
 uint8_t IMG[CAMERA_H][CAMERA_W];//二值化后图像数组
 uint8_t boundaries[CAMERA_H][CAMERA_W];
 uint8_t left_line[CAMERA_H], right_line[CAMERA_H];//赛道的左右边界
+uint8_t old_left_line[CAMERA_H], old_right_line[CAMERA_H];
 uint8_t mid_line[CAMERA_H];
 float left_line_datas[2] = { 0 };//左边线的斜率和截距
 float right_line_datas[2] = { 0 };//右边线的斜率和截距
@@ -56,8 +81,7 @@ uint8_t mid_choose = 0;
 uint8_t white_num_max = 0;
 uint8_t block = 13;
 uint8_t last_midline = 94;
-uint8_t double_thre = 0;
-uint8_t extract_bound = 1;
+
 
 //赛道判断所需要的一些数据
 
@@ -80,6 +104,7 @@ float single_dis = 0;
 
 // 颠簸路段
 int jolt_end_judge_cnt = 0;
+int back_stairs_end_judge_cnt = 0;
 
 
 //补线需要的数据
@@ -1399,7 +1424,7 @@ uint8_t last_one_right_single_check(void)
             break;
         }
         if ((right_line[right_x - 6] - right_line[right_x - 9]) > -4 && right_line[right_x] > right_line[right_x - 6] &&
-            (right_line[right_x - 6] - right_line[right_x - 9]) < 4 && right_line[right_x] > 94 && right_line[right_x - 5] > 74 &&
+            (right_line[right_x - 6] - right_line[right_x - 9]) < 4 && right_line[right_x] > middle && right_line[right_x - 5] > 74 &&
             (right_line[right_x] - left_line[right_x] - right_line[right_x - 8] + left_line[right_x - 8]) > 13 && right_line[right_x] - right_line[right_x - 6] > 7
             && (right_line[right_x] - left_line[right_x] - right_line[right_x - 8] + left_line[right_x - 8]) < 60)
         {
@@ -1424,7 +1449,7 @@ uint8_t last_one_left_single_check(void)
     while (left_x = get_line_f2_forward_y(left_line, left_x, top_road + 5, 7, 5))
     {
         if ((left_line[left_x - 6] - left_line[left_x - 9]) > -4 &&
-            (left_line[left_x - 6] - left_line[left_x - 9]) < 4 && left_line[left_x] < 94 && left_line[left_x - 5] < 114 &&
+            (left_line[left_x - 6] - left_line[left_x - 9]) < 4 && left_line[left_x] < middle && left_line[left_x - 5] < 114 &&
             (right_line[left_x] - left_line[left_x] - right_line[left_x - 8] + left_line[left_x - 8]) > 13 && left_line[left_x - 6] - left_line[left_x] > 7
             && (right_line[left_x] - left_line[left_x] - right_line[left_x - 8] + left_line[left_x - 8]) < 60)
         {
@@ -1906,12 +1931,87 @@ void least_square(uint8_t* line, uint8_t outset, uint8_t limit, float input[])
         input[1] = b;
     }
 }
+
+// 带拟合度的最小二乘法来算中线斜率来补线
+void least_square_with_R(uint8_t* line, uint8_t outset, uint8_t limit, float input[])
+{
+    float k = 0.0f; // slope
+    float b = 0.0f; // intercept
+    float R = 0.0f; // correlation coefficient
+
+    /* use float accumulators to avoid overflow and to compute R correctly */
+    float Sum_xy = 0.0f;
+    float Sum_xx = 0.0f; /* sum of x^2 */
+    float Sum_yy = 0.0f; /* sum of y^2 */
+    float average_x = 0.0f;
+    float average_y = 0.0f;
+
+    if (limit < 3)
+    {
+        input[0] = 0.0f;
+        /* keep previous behavior: return the value at outset as intercept */
+        input[1] = (float)line[outset];
+        input[2] = 0.0f;
+        return;
+    }
+
+    /* safer iteration: iterate exactly `limit` points starting at `outset` and going down */
+    int i = (int)outset;
+    for (uint8_t cnt = 0; cnt < limit; ++cnt, --i)
+    {
+        /* guard against negative index just in case */
+        if (i < 0) break;
+        float x = (float)i;
+        float y = (float)line[i];
+        Sum_xy += x * y;
+        Sum_xx += x * x;
+        Sum_yy += y * y;
+        average_x += x;
+        average_y += y;
+    }
+
+    float n = (float)limit;
+    average_x /= n;
+    average_y /= n;
+
+    float S_xy = Sum_xy - n * average_x * average_y;
+    float S_xx = Sum_xx - n * average_x * average_x;
+    float S_yy = Sum_yy - n * average_y * average_y;
+
+    /* avoid division by zero and negative sqrt argument */
+    if (S_xx == 0.0f)
+    {
+        k = 0.0f;
+        b = average_y;
+        R = 0.0f;
+    }
+    else
+    {
+        k = S_xy / S_xx;
+        b = average_y - k * average_x;
+        if (S_xx > 0.0f && S_yy > 0.0f)
+        {
+            R = S_xy / sqrtf(S_xx * S_yy);
+        }
+        else
+        {
+            R = 0.0f;
+        }
+    }
+
+    input[0] = k;
+    input[1] = b;
+    input[2] = R;
+}
+
+
 //画线
 void get_line(uint8_t* line, uint8_t start, uint8_t end, float k, float b)
 {
     int16_t line_now[NEAR_LINE + 1];
     for (int i = start; i >= end; i--) {
         line_now[i] = (int16_t)(b + k * i);
+        if (i > NEAR_LINE || i < 0) continue;
         if (line_now[i] < LEFT_SIDE) {
             line_now[i] = LEFT_SIDE;
         }
@@ -2160,32 +2260,144 @@ void single_side_road_choose(void)
         }
     }
 }
-////////////////////////////////////////////
-//功能：二值化
-//输入：灰度图片
-//输出：二值化图片
-//备注：
-///////////////////////////////////////////
-void THRE()
+
+
+// 二值化
+#define BLOCK_W 24
+#define BLOCK_H 20
+#define BLOCK_X ((CAMERA_W + BLOCK_W - 1) / BLOCK_W)
+#define BLOCK_Y ((CAMERA_H + BLOCK_H - 1) / BLOCK_H)
+
+
+// 局部补偿幅度，建议 2~4，不要太大
+#define LOCAL_SHIFT 3
+
+static uint8_t row_mean[CAMERA_H];
+static uint8_t block_mean[BLOCK_Y][BLOCK_X];
+static uint16_t hist[256];
+
+static uint8_t background_threshold(uint8_t* img)
 {
-    uint8_t* map;
-    uint8_t* my_map;
-    uint8_t* gray_map = 0;
-    uint8_t bound_thre = 0;
-    map = fullBuffer;
-    for (int i = 0; i < 120; i++)
-    {
-        my_map = &IMG[i][0];
-        for (int j = 0; j < 188; j++)
-        {
-            if ((*map + gray_dis[i][j]) > threshold)
-                (*my_map) = 1;
-            else (*my_map) = 0;
+    uint32_t acc = 0;
+    uint32_t target;
+    int bg_gray;
+    int threshold;
+
+    for (int i = 0; i < 256; i++) {
+        hist[i] = 0;
+    }
+
+	for (int i = THRE_HIS_NEAR; i >= THRE_HIS_FAR; i--) {
+		for (int j = THRE_HIS_LEFT; j <= THRE_HIS_RIGHT; j++) {
+			hist[img[i * CAMERA_W + j]]++;
+		}
+	}
+
+    // 25% 分位值，通常会落在背景灰度附近
+    target = (CAMERA_W * CAMERA_H) / 4;
+    bg_gray = 0;
+
+    for (int i = 0; i < 256; i++) {
+        acc += hist[i];
+        if (acc >= target) {
+            bg_gray = i;
+            break;
+        }
+    }
+
+    threshold = bg_gray + WHITE_GAP;
+
+    if (threshold < MIN_THRE) threshold = MIN_THRE;
+    if (threshold > 255) threshold = 255;
+
+    return (uint8_t)threshold;
+}
+
+void THRE(void)
+{
+    uint8_t* map = fullBuffer;
+    uint8_t base_thre;
+    uint32_t frame_sum = 0;
+    uint8_t frame_mean;
+
+    base_thre = background_threshold(fullBuffer);
+
+	printf("thre: %d\n", base_thre);
+
+    // 1. 计算整幅图平均亮度
+    for (int i = 0; i < CAMERA_W * CAMERA_H; i++) {
+        frame_sum += fullBuffer[i];
+    }
+    frame_mean = frame_sum / (CAMERA_W * CAMERA_H);
+
+    // 2. 计算每行平均亮度
+    for (int i = 0; i < CAMERA_H; i++) {
+        uint16_t sum = 0;
+
+        for (int j = 0; j < CAMERA_W; j++) {
+            sum += fullBuffer[i * CAMERA_W + j];
+        }
+
+        row_mean[i] = sum / CAMERA_W;
+    }
+
+    // 3. 计算分块平均亮度
+    for (int by = 0; by < BLOCK_Y; by++) {
+        for (int bx = 0; bx < BLOCK_X; bx++) {
+            uint32_t sum = 0;
+            uint16_t count = 0;
+
+            int y0 = by * BLOCK_H;
+            int y1 = y0 + BLOCK_H;
+            int x0 = bx * BLOCK_W;
+            int x1 = x0 + BLOCK_W;
+
+            if (y1 > CAMERA_H) y1 = CAMERA_H;
+            if (x1 > CAMERA_W) x1 = CAMERA_W;
+
+            for (int y = y0; y < y1; y++) {
+                for (int x = x0; x < x1; x++) {
+                    sum += fullBuffer[y * CAMERA_W + x];
+                    count++;
+                }
+            }
+
+            block_mean[by][bx] = sum / count;
+        }
+    }
+
+    // 4. 二值化：背景分位数阈值 + 小幅局部补偿
+    for (int i = 0; i < CAMERA_H; i++) {
+        uint8_t* my_map = &IMG[i][0];
+        int by = i / BLOCK_H;
+
+        for (int j = 0; j < CAMERA_W; j++) {
+            int bx = j / BLOCK_W;
+
+            int local_mean;
+            int bound_thre;
+
+            local_mean = ((int)block_mean[by][bx] * 3 + row_mean[i]) >> 2;
+
+            bound_thre = (int)base_thre + ((local_mean - frame_mean) >> LOCAL_SHIFT);
+
+            // 关键：不再整体减阈值，否则背景占大多数时会大片误判
+            if (bound_thre < MIN_THRE) bound_thre = MIN_THRE;
+            if (bound_thre > 255) bound_thre = 255;
+
+            if ((uint16_t)*map > (uint16_t)bound_thre) {
+                *my_map = 1;
+            }
+            else {
+                *my_map = 0;
+            }
+
             map++;
             my_map++;
         }
     }
 }
+
 
 
 ////////////////////////////////////////////
@@ -2357,6 +2569,13 @@ void search_white_range1()
     uint8_t* map = NULL;
     bool found_road_start = 0;
     bool found_road_end = 0;
+
+    // 可调参数：在NEAR_LINE和FAR_LINE处预计的赛道宽度
+    // 用于判断road_start和road_end
+    uint8_t w_near_line = 80, w_far_line = 10;
+    // 根据两个参数计算相应的k
+    float k_width = ((w_near_line - w_far_line) * 1.0) / ((NEAR_LINE - FAR_LINE) * 1.0);
+
     for (i = istart; i >= iend; i--)
     {
         map = &IMG[i][LEFT_SIDE];//指针行走加快访问速度
@@ -2366,21 +2585,26 @@ void search_white_range1()
         {
             if ((*map))//遇白条左边界
             {
-                tnum++;
-                if (tnum >= white_num_MAX)break;
-                range* now_white = &white_range[i].area[tnum];
-                now_white->left = j;
-
+                uint8_t left = j;
                 //开始向后一个一个像素点找这个白条右边界
                 map++;
                 j++;
-
                 while ((*map) && j <= RIGHT_SIDE)
                 {
                     map++;
                     j++;
                 }
-                now_white->right = j - 1;
+
+                uint8_t right = j - 1;
+
+                if (!on_single_side_road && i > 60 && right - left < 40)
+                    continue;//如果白条太短了，跳过不处理
+                tnum++;
+                if (tnum >= white_num_MAX)break;
+                range* now_white = &white_range[i].area[tnum];
+                now_white->left = left;
+                now_white->right = right;
+
                 if (now_white->right - now_white->left > longest)
                 {
                     longest = now_white->right - now_white->left;
@@ -2389,12 +2613,13 @@ void search_white_range1()
             }
         }
         white_range[i].num = tnum;
-        if (!found_road_start && longest >= 50)
+        int expected_w = k_width * i + w_far_line;
+        if (!found_road_start && longest >= expected_w)
         {
             found_road_start = 1;
             road_start = i;
         }
-        else if (!found_road_end && found_road_start && longest < 30)
+        else if (!found_road_end && found_road_start && longest < expected_w * 0.4)
         {
             found_road_end = 1;
             road_end = i;
@@ -2724,7 +2949,7 @@ void define_mid_255()
     {
         for (int i = NEAR_LINE; i > top_road + 5; i--)
         {
-            mid_line[i] = 94;
+            mid_line[i] = middle;
         }
     }
 }
@@ -2776,7 +3001,55 @@ void calc_stair_distance()
     else {
         stair_distance = NEAR_LINE - road_end;
     }
+    if (stair_distance == 0)
+    {
+        stair_distance = 120;
+    }
 }
+
+
+
+
+bool judge_least_square(float input[], bool l_or_r)
+{
+    float k = input[0], R = input[2];
+    if (fabs(R) < 0.85) return false;
+    if (!l_or_r)
+    {
+        // 左边线
+        if (k > 1 || k < -1.3) return false;
+        else return true;
+    }
+    else
+    {
+        // 右边线
+        if (k < -1 || k > 1.3) return false;
+        else return true;
+    }
+}
+
+uint8_t find_least_square_start(uint8_t* line, uint8_t start, uint8_t end, uint8_t limit, bool l_or_r)
+{
+    for (int i = start; i >= end + limit; i--)
+    {
+        uint8_t change_y = get_line_change(line, i, i - limit, 6);
+        if (change_y == 0)
+        {
+            // 找到连续线段，判断k
+            float input[3];
+            least_square_with_R(line, i, limit, input);
+            if (judge_least_square(input, l_or_r))
+            {
+                return i;
+            }
+        }
+    }
+    return 0;
+}
+
+
+
+
 
 // 三级台阶补线
 void mend_stairs(uint8_t* line)
@@ -2795,7 +3068,7 @@ void mend_stairs(uint8_t* line)
         else {
             for (int i = NEAR_LINE; i >= road_start; i--)
             {
-                line[i] = 94;
+                line[i] = middle;
             }
         }
     }
@@ -2810,7 +3083,7 @@ void mend_stairs(uint8_t* line)
         else {
             for (int i = road_end; i >= FAR_LINE; i--)
             {
-                line[i] = 94;
+                line[i] = middle;
             }
         }
     }
@@ -2822,8 +3095,11 @@ void mend_far_single_side()
     float input[2];
     if (NEAR_LINE - road_start >= 2 && road_start - road_end >= 10)
     {
-        least_square_get_line(left_line, road_start - 5, 5, input, NEAR_LINE, road_start - 5);
-        least_square_get_line(right_line, road_start - 5, 5, input, NEAR_LINE, road_start - 5);
+        uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 5, 0);
+        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1);
+        if (lstart) least_square_get_line(left_line, lstart, 6, input, NEAR_LINE, lstart);
+        if (rstart) least_square_get_line(right_line, rstart, 6, input, NEAR_LINE, rstart);
+        on_single_side_road_cnt = 0;
         on_single_side_road = 0;
     }
     else {
@@ -2836,8 +3112,14 @@ void mend_far_single_side()
                     white_count++;
             }
         }
-        if (white_count >= 800 && !on_single_side_road)
-            on_single_side_road = 1;
+        if (white_count >= 800)
+        {
+            on_single_side_road_cnt++;
+            if (on_single_side_road_cnt > 10)
+            {
+                on_single_side_road = 1;
+            }
+        }
     }
 }
 
@@ -2852,7 +3134,7 @@ void front_stairs_end_check()
                 white_count++;
         }
     }
-    if (white_count < 600)
+    if (white_count < 400)
     {
         front_stairs_end_flag = 1;
     }
@@ -2872,12 +3154,19 @@ void back_stairs_end_check()
                 white_count++;
         }
     }
-    if (white_count < 600)
+    if (follow_lock == 3 && white_count < 400)
     {
-        back_stairs_end_flag = 1;
+        back_stairs_end_judge_cnt++;
+        if (back_stairs_end_judge_cnt > back_stairs_end_cnt_thre)
+        {
+            // 达到阈值，退出BACK_STAIRS状态
+            back_stairs_end_judge_cnt = 0;
+            back_stairs_end_flag = 1;
+        }
     }
     else {
         back_stairs_end_flag = 0;
+        back_stairs_end_judge_cnt = 0;
     }
 }
 
@@ -2893,7 +3182,7 @@ void jolt_end_check()
                 white_count++;
         }
     }
-    if (white_count < 300)
+    if (white_count < 400)
     {
         jolt_end_judge_cnt++;
         if (jolt_end_judge_cnt > jolt_end_cnt_thre)
@@ -2907,6 +3196,63 @@ void jolt_end_check()
         jolt_end_flag = 0;
         jolt_end_judge_cnt = 0;
     }
+}
+
+void mend_far_jolt()
+{
+    float input[2];
+    if (NEAR_LINE - road_start >= 2 && road_start - road_end >= 10)
+    {
+        uint8_t lstart= find_least_square_start(left_line, road_start, road_end, 5, 0);
+        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1);
+        if(lstart) least_square_get_line(left_line, lstart, 6, input, NEAR_LINE, lstart);
+        if(rstart) least_square_get_line(right_line, rstart, 6, input, NEAR_LINE, rstart);
+        on_jolt_cnt = 0;
+        on_jolt = 0;
+        jolt_distance = NEAR_LINE - road_start;
+    }
+    else {
+        int white_count = 0;
+        for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
+        {
+            for (int j = 64; j <= 124; j++)
+            {
+                if (IMG[i][j])
+                    white_count++;
+            }
+        }
+        if (white_count >= 800)
+        {
+            on_jolt_cnt++;
+            if (on_single_side_road_cnt > 10)
+            {
+                on_jolt = 1;
+            }
+        }
+        else {
+			// 面前一片黑，还没有看见颠簸路段，认为颠簸路段距离为120
+            jolt_distance = 120;
+        }
+    }
+}
+
+int calc_error(int* missed)
+{
+    int sum = 0;
+    int total = 0;
+    int miss_cnt = 0;
+    for (int i = error_calc_near_line; i >= error_calc_far_line; i--)
+    {
+        if (mid_line[i] != MISS)
+        {
+            sum += mid_line[i];
+            total++;
+        }
+        else miss_cnt++;
+    }
+    if (total == 0) total = 1;
+    if (missed) *missed = miss_cnt;
+    return sum / total - middle;
 }
 
 ////////////////////////////////////////////
@@ -2932,6 +3278,13 @@ void image_main()
 
     ordinary_two_line();
 
+    // 保存旧的双边线
+    for (int i = NEAR_LINE; i >= FAR_LINE; i--)
+    {
+        old_left_line[i] = left_line[i];
+        old_right_line[i] = right_line[i];
+    }
+
     get_mid_line();
 #if ONBOARD
 #else
@@ -2951,7 +3304,9 @@ void image_main()
         if (!on_single_side_road)
             mend_far_single_side();
         else
+        {
             general_judgement();
+        }
         break;
 
     case FRONT_STAIRS:
@@ -2967,39 +3322,48 @@ void image_main()
         back_stairs_end_check();
         break;
     case JOLT:
-        jolt_end_check();
+        if(!on_jolt) mend_far_jolt();
+        else jolt_end_check();
         break;
     }
 
     get_mid_line();
 
-    define_mid_255();
-    int sum = 0;
-    int total = 0;
-    for (int i = error_calc_near_line; i >= error_calc_far_line; i--)
+    int missed = 0;
+    error = calc_error(&missed);
+    //define_mid_255();
+    
+    switch (now_element)
     {
-        if (mid_line[i] != MISS)
+    case BACK_STAIRS:
+        if (follow_lock == 3)
         {
-            sum += mid_line[i];
-            total++;
+            // 防止最后一段error过大导致车子乱转
+            if (error < -20) error = 0;
+            if (error > 20) error = 0;
+            if (back_stairs_end_judge_cnt > 5)
+            {
+                error = 0;
+            }
+        }
+        break;
+    case SINGLE_SIDE:
+        if (on_single_side_road)
+        {
+            if (error > 10 || error < -10) error = 0;
+            if (error < -5) error = -5;
+            if (error > 5) error = 5;
         }
     }
-    if (total == 0) total = 1;
-    error = sum / total - 94;
     if (error < -50) error = 0;
     if (error > 50) error = 0;
-
-    if (single_side_state)
-    {
-        // if (error < -5) error = -5;
-        // if (error > 5) error = 5;
-    }
+    
 
     mid_update = 1;
     //print_f();
 #if ONBOARD
 #else
-    printf("dis: %d, start: %d, end: %d, error: %d\n", stair_distance, road_start, road_end, error);
+    //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;

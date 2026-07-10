@@ -78,8 +78,11 @@ void create_pic_now_background(void) {
 
 // 加载图片
 void load_pic(void) {
-
-    path = std::format("D:/SmartcarImage/pictures/front_stairs_out/Image{}.jpg", pic_num + 10);
+    // 2026_06_04_jolt 2026_06_17_single_side 
+    // 2026_05_30_15_single_side 2026_05_30_front_stair 2026_05_30_back_stair
+    // 2026_05_21_front_stairs
+    // 2026_05_26_single_indoor
+    path = std::format("D:/SmartcarImage/pictures/2026_05_30_15_single_side/Image{}.jpg", pic_num + 10);
 
     // 使用imread替代cvLoadImage，0表示灰度加载
     pImg_1 = imread(path, IMREAD_GRAYSCALE);
@@ -181,9 +184,9 @@ void on_mouse(int event, int x, int y, int flags, void* userdata) {
         }
         case EVENT_MOUSEMOVE: {
             // 显示坐标
-            rectangle(pImg_2, Point(0, CAMERA_H + 22), Point(130, CAMERA_H + 50), col_white, -1);
+            rectangle(pImg_2, Point(0, CAMERA_H + 22), Point(200, CAMERA_H + 50), col_white, -1);
             
-            putText(pImg_2, std::format("x = {0} y = {1}", x, y), Point(10, CAMERA_H + 40), FONT_HERSHEY_SIMPLEX, 0.4, col_blue, 1);
+            putText(pImg_2, std::format("x = {0} y = {1} gray = {2}", x, y, *(fullBuffer + y * CAMERA_W + x)), Point(10, CAMERA_H + 40), FONT_HERSHEY_SIMPLEX, 0.4, col_blue, 1);
 
             if (x >= CAMERA_W || y >= CAMERA_H) {
                 break;
