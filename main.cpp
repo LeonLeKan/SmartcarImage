@@ -181,9 +181,9 @@ void on_mouse(int event, int x, int y, int flags, void* userdata) {
         }
         case EVENT_MOUSEMOVE: {
             // 显示坐标
-            rectangle(pImg_2, Point(0, CAMERA_H + 22), Point(130, CAMERA_H + 50), col_white, -1);
-            
-            putText(pImg_2, std::format("x = {0} y = {1}", x, y), Point(10, CAMERA_H + 40), FONT_HERSHEY_SIMPLEX, 0.4, col_blue, 1);
+            rectangle(pImg_2, Point(0, CAMERA_H + 22), Point(200, CAMERA_H + 50), col_white, -1);
+
+            putText(pImg_2, std::format("x = {0} y = {1} gray = {2}", x, y, *(fullBuffer + y * CAMERA_W + x)), Point(10, CAMERA_H + 40), FONT_HERSHEY_SIMPLEX, 0.4, col_blue, 1);
 
             if (x >= CAMERA_W || y >= CAMERA_H) {
                 break;
@@ -203,7 +203,7 @@ void on_mouse(int event, int x, int y, int flags, void* userdata) {
             }
             else if (x > CAMERA_W + 10 && x < CAMERA_W + 60 && y > 45 && y < 60) {
                 printf("Please input the num of picture you want to check:");
-				std::cin >> pic_num;
+                std::cin >> pic_num;
                 load_pic();
             }
             else if (x > CAMERA_W + 10 && x < CAMERA_W + 60 && y > 65 && y < 80) {
@@ -260,6 +260,7 @@ void on_mouse(int event, int x, int y, int flags, void* userdata) {
 
     show_pic();
 }
+
 
 // 中线检测函数
 void find_midline(void) {

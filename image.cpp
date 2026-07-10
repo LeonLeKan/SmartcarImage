@@ -32,7 +32,7 @@ bool jolt_end_flag = 0;
 int error = 0;
 int error_calc_near_line = 42;
 int error_calc_far_line = 40;
-uint8_t threshold = 230;    //阈值
+uint8_t threshold = 150;    //阈值
 bool on_single_side_road = 0;   // 是否进入单边桥之前的白色赛道
 int jolt_end_cnt_thre = 30;
 //////////////////////// ////////// //////////////////
@@ -2836,7 +2836,7 @@ void image_main()
 	int avg = cnt > 0 ? total / cnt : 0;
 	printf("average gray value in the middle area: %d\n", avg);
     // 计算去阴影数组
-	for (int i = NEAR_LINE; i >= 65; i--)
+	for (int i = NEAR_LINE; i >= FAR_LINE; i--)
     {
         for(int j = LEFT_SIDE; j <= RIGHT_SIDE; j++)
         {
@@ -2867,8 +2867,8 @@ void image_main()
 //#endif
 //    // mid_update = 0;
 //    datas_init();
-//    THRE();
-//    head_clear();
+    THRE();
+    head_clear();
 //    search_white_range1();
 //    find_all_connect();
 //    find_road_state();
