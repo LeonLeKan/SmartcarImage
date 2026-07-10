@@ -21,7 +21,6 @@
   <ItemGroup>
     <ClCompile Include="image.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="src\least_square.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="image.h" />

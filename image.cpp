@@ -37,7 +37,6 @@ bool jolt_end_flag = 0;
 int error = 0;
 int error_calc_near_line = 52;
 int error_calc_far_line = 50;
-uint8_t threshold = 140;    //阈值
 bool on_single_side_road = 0;   // 是否进入单边桥之前的白色赛道
 int on_single_side_road_cnt = 0;
 
@@ -51,6 +50,16 @@ int back_stairs_end_cnt_thre = 15;
 uint8_t middle = 84;    // 中线校准（有些摄像头会整体向左右偏，所以真正的正中间不一定是94）
 //////////////////////// ////////// //////////////////
 
+// 二值化参数
+uint8_t THRE_HIS_LEFT = 0, THRE_HIS_RIGHT = CAMERA_W;
+uint8_t THRE_HIS_NEAR = NEAR_LINE, THRE_HIS_FAR = FAR_LINE + 20;
+// 白色赛道必须比背景亮多少
+// 背景误判多：调大；阴影下赛道断：调小
+uint8_t WHITE_GAP = 60;
+
+// 阈值下限，防止大片背景时阈值过低
+uint8_t MIN_THRE = 60;
+uint8_t MAX_THRE = 200;
 
 
 uint8_t road_start = NEAR_LINE;
@@ -72,8 +81,7 @@ uint8_t mid_choose = 0;
 uint8_t white_num_max = 0;
 uint8_t block = 13;
 uint8_t last_midline = 94;
-uint8_t double_thre = 0;
-uint8_t extract_bound = 1;
+
 
 //赛道判断所需要的一些数据
 
@@ -2252,32 +2260,144 @@ void single_side_road_choose(void)
         }
     }
 }
-////////////////////////////////////////////
-//功能：二值化
-//输入：灰度图片
-//输出：二值化图片
-//备注：
-///////////////////////////////////////////
-void THRE()
+
+
+// 二值化
+#define BLOCK_W 24
+#define BLOCK_H 20
+#define BLOCK_X ((CAMERA_W + BLOCK_W - 1) / BLOCK_W)
+#define BLOCK_Y ((CAMERA_H + BLOCK_H - 1) / BLOCK_H)
+
+
+// 局部补偿幅度，建议 2~4，不要太大
+#define LOCAL_SHIFT 3
+
+static uint8_t row_mean[CAMERA_H];
+static uint8_t block_mean[BLOCK_Y][BLOCK_X];
+static uint16_t hist[256];
+
+static uint8_t background_threshold(uint8_t* img)
 {
-    uint8_t* map;
-    uint8_t* my_map;
-    uint8_t* gray_map = 0;
-    uint8_t bound_thre = 0;
-    map = fullBuffer;
-    for (int i = 0; i < 120; i++)
-    {
-        my_map = &IMG[i][0];
-        for (int j = 0; j < 188; j++)
-        {
-            if ((uint16_t)*map > threshold) //+ (uint16_t)gray_dis[i][j])
-                (*my_map) = 1;
-            else (*my_map) = 0;
+    uint32_t acc = 0;
+    uint32_t target;
+    int bg_gray;
+    int threshold;
+
+    for (int i = 0; i < 256; i++) {
+        hist[i] = 0;
+    }
+
+	for (int i = THRE_HIS_NEAR; i >= THRE_HIS_FAR; i--) {
+		for (int j = THRE_HIS_LEFT; j <= THRE_HIS_RIGHT; j++) {
+			hist[img[i * CAMERA_W + j]]++;
+		}
+	}
+
+    // 25% 分位值，通常会落在背景灰度附近
+    target = (CAMERA_W * CAMERA_H) / 4;
+    bg_gray = 0;
+
+    for (int i = 0; i < 256; i++) {
+        acc += hist[i];
+        if (acc >= target) {
+            bg_gray = i;
+            break;
+        }
+    }
+
+    threshold = bg_gray + WHITE_GAP;
+
+    if (threshold < MIN_THRE) threshold = MIN_THRE;
+    if (threshold > 255) threshold = 255;
+
+    return (uint8_t)threshold;
+}
+
+void THRE(void)
+{
+    uint8_t* map = fullBuffer;
+    uint8_t base_thre;
+    uint32_t frame_sum = 0;
+    uint8_t frame_mean;
+
+    base_thre = background_threshold(fullBuffer);
+
+	printf("thre: %d\n", base_thre);
+
+    // 1. 计算整幅图平均亮度
+    for (int i = 0; i < CAMERA_W * CAMERA_H; i++) {
+        frame_sum += fullBuffer[i];
+    }
+    frame_mean = frame_sum / (CAMERA_W * CAMERA_H);
+
+    // 2. 计算每行平均亮度
+    for (int i = 0; i < CAMERA_H; i++) {
+        uint16_t sum = 0;
+
+        for (int j = 0; j < CAMERA_W; j++) {
+            sum += fullBuffer[i * CAMERA_W + j];
+        }
+
+        row_mean[i] = sum / CAMERA_W;
+    }
+
+    // 3. 计算分块平均亮度
+    for (int by = 0; by < BLOCK_Y; by++) {
+        for (int bx = 0; bx < BLOCK_X; bx++) {
+            uint32_t sum = 0;
+            uint16_t count = 0;
+
+            int y0 = by * BLOCK_H;
+            int y1 = y0 + BLOCK_H;
+            int x0 = bx * BLOCK_W;
+            int x1 = x0 + BLOCK_W;
+
+            if (y1 > CAMERA_H) y1 = CAMERA_H;
+            if (x1 > CAMERA_W) x1 = CAMERA_W;
+
+            for (int y = y0; y < y1; y++) {
+                for (int x = x0; x < x1; x++) {
+                    sum += fullBuffer[y * CAMERA_W + x];
+                    count++;
+                }
+            }
+
+            block_mean[by][bx] = sum / count;
+        }
+    }
+
+    // 4. 二值化：背景分位数阈值 + 小幅局部补偿
+    for (int i = 0; i < CAMERA_H; i++) {
+        uint8_t* my_map = &IMG[i][0];
+        int by = i / BLOCK_H;
+
+        for (int j = 0; j < CAMERA_W; j++) {
+            int bx = j / BLOCK_W;
+
+            int local_mean;
+            int bound_thre;
+
+            local_mean = ((int)block_mean[by][bx] * 3 + row_mean[i]) >> 2;
+
+            bound_thre = (int)base_thre + ((local_mean - frame_mean) >> LOCAL_SHIFT);
+
+            // 关键：不再整体减阈值，否则背景占大多数时会大片误判
+            if (bound_thre < MIN_THRE) bound_thre = MIN_THRE;
+            if (bound_thre > 255) bound_thre = 255;
+
+            if ((uint16_t)*map > (uint16_t)bound_thre) {
+                *my_map = 1;
+            }
+            else {
+                *my_map = 0;
+            }
+
             map++;
             my_map++;
         }
     }
 }
+
 
 
 ////////////////////////////////////////////
@@ -3145,7 +3265,7 @@ void image_main()
 {
 #if ONBOARD
 #else 
-    now_element = JOLT;
+    now_element = FRONT_STAIRS;
 #endif
     // mid_update = 0;
     datas_init();
@@ -3243,7 +3363,7 @@ void image_main()
     //print_f();
 #if ONBOARD
 #else
-    printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
+    //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;
