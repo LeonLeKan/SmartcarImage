@@ -1602,7 +1602,35 @@ void mend_single_side()
             left_bp_H = left_bp_H - 1;
         }
     }
-    least_square_get_line(left_line, left_bp_H + 10, 10, input, left_bp_H, FAR_LINE);
+
+    uint8_t right_bp_H = road_start;
+    while (right_bp_H = get_line_f2_forward_y(right_line, right_bp_H, road_end + 5, 7, 5))
+    {
+        if (2 * right_line[right_bp_H] - right_line[right_bp_H - 5] - right_line[right_bp_H + 5] > 7 && 2 * right_line[right_bp_H] - right_line[right_bp_H - 5] - right_line[right_bp_H + 5] < 60 && right_line[right_bp_H] - right_line[right_bp_H - 5] > 7)
+        {
+            if (right_bp_H > 50)
+            {
+                if (right_line[right_bp_H] < RIGHT_SIDE - 15)
+                {
+                    break;
+                }
+                else
+                {
+                    right_bp_H = right_bp_H - 1;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        else
+        {
+            right_bp_H = right_bp_H - 1;
+        }
+    }
+    if(road_start - left_bp_H > 10) least_square_get_line(left_line, left_bp_H + 10, 10, input, left_bp_H, FAR_LINE);
+    if(road_start - right_bp_H > 10) least_square_get_line(right_line, right_bp_H + 10, 10, input, right_bp_H, FAR_LINE);
 }
 
 void front_stairs_end_check()
