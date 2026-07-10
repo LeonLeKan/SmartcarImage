@@ -1579,12 +1579,30 @@ void mend_single_side()
         if (rstart) least_square_get_line(right_line, rstart, 6, input, NEAR_LINE, rstart);
     }
     
-    uint8_t left_down_bp = 0, left_up_bp = 0;
-    uint8_t right_down_bp = 0, right_up_bp = 0;
-	for (int i = road_start; i >= road_end; i--)
-	{
-        
-	}
+    uint8_t left_bp_H = road_start;
+    
+    while(left_bp_H = get_line_f2_forward_y(left_line, left_bp_H, road_end + 5, 7, 5))
+    {
+        if (2 * left_line[left_bp_H] - left_line[left_bp_H - 5] - left_line[left_bp_H + 5] < -7 && 2 * left_line[left_bp_H] - left_line[left_bp_H - 5] - left_line[left_bp_H + 5] > -60 && left_line[left_bp_H] - left_line[left_bp_H - 5] < -7)
+        {
+            if (left_bp_H > 50)
+            {
+                if (left_line[left_bp_H] > LEFT_SIDE + 15)
+                    break;
+                else
+                    left_bp_H = left_bp_H - 1;
+            }
+            else
+            {
+                break;
+            }
+        }
+        else
+        {
+            left_bp_H = left_bp_H - 1;
+        }
+    }
+    least_square_get_line(left_line, left_bp_H + 10, 10, input, left_bp_H, FAR_LINE);
 }
 
 void front_stairs_end_check()
@@ -1817,17 +1835,17 @@ void image_main()
 #else
     //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
     //printf("on_single_side_road: %d", on_single_side_road);
-    //for (int i = 0; i < CAMERA_W; i++)
-    //{
-    //    IMG[error_calc_near_line][i] = purple;
-    //    IMG[error_calc_far_line][i] = purple;
-    //}
-    //for (int i = NEAR_LINE; i >= FAR_LINE; i--)
-    //    if (mid_line[i] != MISS)
-    //    {
-    //        IMG[i][left_line[i]] = blue;
-    //        IMG[i][right_line[i]] = green;
-    //        IMG[i][mid_line[i]] = red;
-    //    }
+    for (int i = 0; i < CAMERA_W; i++)
+    {
+        IMG[error_calc_near_line][i] = purple;
+        IMG[error_calc_far_line][i] = purple;
+    }
+    for (int i = NEAR_LINE; i >= FAR_LINE; i--)
+        if (mid_line[i] != MISS)
+        {
+            IMG[i][left_line[i]] = blue;
+            IMG[i][right_line[i]] = green;
+            IMG[i][mid_line[i]] = red;
+        }
 #endif
 }
