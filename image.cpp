@@ -85,6 +85,7 @@ all_range white_range[CAMERA_H];//所有白条子
 road my_road[CAMERA_H];//赛道
 road_range myroad_continue[NEW_CAMERA_H];
 uint8_t j_continue[CAMERA_H];
+uint8_t min_i = CAMERA_H;
 uint8_t IMG[CAMERA_H][CAMERA_W];//二值化后图像数组
 uint8_t boundaries[CAMERA_H][CAMERA_W];
 uint8_t left_line[CAMERA_H], right_line[CAMERA_H];//赛道的左右边界
@@ -1367,11 +1368,54 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
 }
 
 
+uint8_t my_continue[CAMERA_H];
+void find_continue_recursive(uint8_t now_i, uint8_t my_res[])
+{
+    uint8_t j;
+    uint8_t width_max = 0;
+    uint8_t width_new = 0;
+    uint8_t left = 0;
+    uint8_t right = 0;
+    uint8_t dright, dleft, uright, uleft;
+    bool found = 0;
+    for (j = 1; j <= my_road[now_i - 1].white_num; j++)
+    {
+        dleft = my_road[now_i].connected[my_res[now_i]].left;
+        dright = my_road[now_i].connected[my_res[now_i]].right;
+        uleft = my_road[now_i - 1].connected[j].left;
+        uright = my_road[now_i - 1].connected[j].right;
+        if (//相连
+            dleft <= uright
+            &&
+            dright >= uleft
+   //         && 
+			//uright - uleft > 0.3 * get_expected_road_width(now_i - 1)
+            )
+        {
+			my_res[now_i - 1] = j;
+            find_continue_recursive(now_i - 1, my_res);
+            found = 1;
+        }
+    }
+    if (!found)
+    {
+        if (now_i < min_i)
+        {
+            for (int i = road_start; i >= now_i; i--)
+            {
+                j_continue[i] = my_res[i];
+            }
+            min_i = now_i;
+        }
+        return;
+    }
+}
+
+
 void ordinary_two_line(void)
 {
     uint8_t i;
     uint8_t j;
-    uint8_t j_continue[CAMERA_H];//第一条连通路径
     uint8_t i_start;
     uint8_t i_end;
     uint8_t j_start = MISS;
@@ -1391,8 +1435,13 @@ void ordinary_two_line(void)
             j_start = j;
         }
     }
+	for (int i = 0; i < CAMERA_H; i++)
+	{
+		j_continue[i] = MISS;
+        my_continue[i] = MISS;
+	}
     j_continue[i_start] = j_start;
-
+    
     //记录连贯区域编号
     for (i = i_start; i > i_end; i--)
     {
@@ -1412,6 +1461,10 @@ void ordinary_two_line(void)
         }
 
     }
+
+ //   min_i = CAMERA_H;
+ //   my_continue[i_start] = j_start;
+	//find_continue_recursive(i_start, my_continue);
 
 
     //全部初始化为MISS
@@ -1610,7 +1663,7 @@ void mend_single_side()
     
     if (NEAR_LINE - road_start >= 30) return;
     int judge_lmr = 0;
-    for (int i = road_start; i >= road_start - 15; i--)
+    for (int i = road_start; i >= road_start - 20; i--)
     {
         if (abs(right_line[i] - middle) < 10) judge_lmr = 1;
         else if (abs(left_line[i] - middle) < 10) judge_lmr = -1;
@@ -1714,7 +1767,30 @@ void mend_single_side()
         if (road_start - 10 - right_bp_up_H > 0) least_square_get_line(right_line, right_bp_up_H, 10, input, NEAR_LINE, right_bp_up_H);
 
     }
-    //printf("lmr: %d, left down: %d, right down: %d, left up: %d, right up: %d, base: %d\n", judge_lmr, left_bp_down_H, right_bp_down_H, left_bp_up_H, right_bp_up_H, road_start - 10);
+    
+    if (abs(left_line[error_calc_near_line] - middle) < 10)
+    {
+        for (int i = error_calc_near_line; i >= road_end; i--)
+        {
+			if (left_line[error_calc_near_line] - left_line[i] > 10)
+			{
+				least_square_get_line(left_line, i, 5, input, NEAR_LINE, i);
+				break;
+			}
+        }
+    }
+    if (abs(right_line[error_calc_near_line] - middle) < 10)
+    {
+        for (int i = error_calc_near_line; i >= road_end; i--)
+        {
+            if (right_line[i] - right_line[error_calc_far_line] > 10)
+            {
+                least_square_get_line(right_line, i, 5, input, NEAR_LINE, i);
+                break;
+            }
+        }
+    }
+
 }
 
 void front_stairs_end_check()
