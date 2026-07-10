@@ -112,7 +112,7 @@ typedef struct {
 void head_clear(void);
 void THRE(void);
 int find_f(int a);
-void search_white_range1(void);//获取白条子
+void search_white_range(void);//获取白条子
 void find_all_connect(void);
 uint8_t find_continue(uint8_t i_start, uint8_t j_start);
 void ordinary_two_line(void);

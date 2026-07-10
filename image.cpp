@@ -77,9 +77,9 @@ uint8_t MAX_THRE = 200;
 static uint8_t row_mean[CAMERA_H];
 static uint8_t block_mean[BLOCK_Y][BLOCK_X];
 static uint16_t hist[256];
-//////////////////////// /////// ////////////////////////
+//////////////////////// /二值化/ ////////////////////////
 
-
+////////////////////////// 赛道 ////////////////////////
 uint8_t road_start = NEAR_LINE;
 uint8_t road_end = FAR_LINE;
 all_range white_range[CAMERA_H];//所有白条子
@@ -100,6 +100,8 @@ uint8_t white_num_max = 0;
 uint8_t block = 13;
 uint8_t last_midline = 94;
 
+uint8_t enable_dis_shadow = 1;     //是否启用去除影子策略
+///////////////////////// /赛道/ ///////////////////////
 
 //赛道判断所需要的一些数据
 
@@ -2335,8 +2337,6 @@ void THRE(void)
 
     base_thre = background_threshold(fullBuffer);
 
-	printf("thre: %d\n", base_thre);
-
     // 1. 计算整幅图平均亮度
     for (int i = 0; i < CAMERA_W * CAMERA_H; i++) {
         frame_sum += fullBuffer[i];
@@ -2571,7 +2571,7 @@ int find_f(int node)
 //输出：white_range[120]
 //备注：指针提速
 ///////////////////////////////////////////
-void search_white_range1()
+void search_white_range()
 {
     uint8_t i = 0;
     uint8_t j = 0;
@@ -2610,8 +2610,6 @@ void search_white_range1()
 
                 uint8_t right = j - 1;
 
-                if (!on_single_side_road && i > 60 && right - left < 40)
-                    continue;//如果白条太短了，跳过不处理
                 tnum++;
                 if (tnum >= white_num_MAX)break;
                 range* now_white = &white_range[i].area[tnum];
@@ -2695,7 +2693,7 @@ void find_all_connect()
 //输出：
 //备注：
 ///////////////////////////////////////////
-void find_road1()
+void find_road()
 {
     uint8_t istart = road_start;
     uint8_t iend = FAR_LINE;
@@ -2714,7 +2712,7 @@ void find_road1()
             break;
         }
 
-    if (road_f == -1)//若赛道没在中间，在NEAR_LINE行选一行最长的认为这就是赛道
+    if (road_f == -1)
     {
         int widthmax = 0, jselect = 1;
         for (int i = 1; i <= white_range[istart].num; i++)
@@ -2754,16 +2752,11 @@ void find_road_state()
     }
     else
     {
-        find_road1();
+        find_road();
     }
 }
 
-////////////////////////////////////////////
-//功能：返回相连下一行白条子编号
-//输入：i_start起始行  j_start白条标号
-//输出：白条标号
-//备注：认为下一行与本行赛道重叠部分对多的白条为选定赛道
-///////////////////////////////////////////
+
 uint8_t find_continue(uint8_t i_start, uint8_t j_start)
 {
     uint8_t j_return;
@@ -2806,15 +2799,43 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
         }
 
     }
+	if (j_return == MISS)
+	{
+		return j_return;
+	}
+	uint8_t current_line = i_start;
+    // 影子干扰情况处理，连接被影子隔断的两个白条
+    if (enable_dis_shadow 
+        && current_line >= NEAR_LINE - 45 
+        && white_range[current_line].num > 1)
+    {
+        uint8_t left_dis = 255, right_dis = 255;
+		auto left_white = &white_range[current_line].area[j_return - 1];
+		auto current_white = &white_range[current_line].area[j_return];
+		auto right_white = &white_range[current_line].area[j_return + 1];
+        if (j_return > 1)
+        {
+            left_dis = current_white->left - left_white->right;
+        }
+        if (j_return < white_range[current_line].num)
+        {
+            right_dis = right_white->left - current_white->right;
+        }
+        if (left_dis < right_dis && left_dis < 15 && left_white->left > 20)
+        {
+            // 将左边的白条子和当前白条子连接为一个白条
+			my_road[current_line].connected[j_return].left = left_white->left;
+        }
+        else if (right_dis < left_dis && right_dis < 15 && CAMERA_W - right_white->right > 20)
+        {
+			my_road[current_line].connected[j_return].right = right_white->right;
+        }
+    }
+
     return j_return;
 }
 
-////////////////////////////////////////////
-//功能：通用决定双边
-//输入：
-//输出：
-//备注：
-///////////////////////////////////////////
+
 void ordinary_two_line(void)
 {
     uint8_t i;
@@ -2989,21 +3010,6 @@ void element_check()//人机交互
     element_ok = 1;
 }
 
-//打印数值的函数
-void print_f()
-{
-    printf("————————————————————————————————————\n");
-    //printf("threshold1 = %d,thresholds2 = %d,threshold3 = %d,threshold4 = %d\n", threshold_1, threshold_2, threshold_3, threshold_4);
-    printf("元素状态 = %d,弯道状态 = %d,元素状态 = %d\n", step, bend_state, yuansu_state);
-    printf("单边桥判断帧数 = %d, 弯道判断帧数 = %d\n", single_side_fps, bend_fps);
-    printf("right_guai_H = %d , left_guai_H = %d\n", right_guai_H, left_guai_H);
-    printf("right_guai_H2 = %d , left_guai_H2 = %d\n", right_guai_H2, left_guai_H2);
-    printf("right_k = %f, left_k = %f\n", right_line_datas[0], left_line_datas[0]);
-    printf("top_road = %d\n", top_road);
-    printf("left_f2_y = %d, right_f2_y = %d\n", left_f2_y, right_f2_y);
-    printf("mid_line[前瞻] = %d\n", mid_line[35]);
-}
-
 
 void calc_stair_distance()
 {
@@ -3041,13 +3047,18 @@ bool judge_least_square(float input[], bool l_or_r)
     }
 }
 
-uint8_t find_least_square_start(uint8_t* line, uint8_t start, uint8_t end, uint8_t limit, bool l_or_r)
+
+// 通过最小二乘法拟合，寻找最适合补线的起始点
+// start - 寻找起始行 end - 寻找终止行 limit - 最小拟合点数 l_or_r - 0左1右 reverse - 是否反向搜索
+uint8_t find_least_square_start(uint8_t* line, uint8_t start, uint8_t end, uint8_t limit, bool l_or_r, bool reverse = false)
 {
-    for (int i = start; i >= end + limit; i--)
+    for (int i = reverse ? end + limit : start; reverse ? (i <= start) : (i >= end + limit);  reverse ? i++ : i--)
     {
         uint8_t change_y = get_line_change(line, i, i - limit, 6);
-        if (change_y == 0)
+		if (change_y == 0) // 线条连续，没有跳变
         {
+            // 检查赛道宽度是否合法
+			if (abs(left_line[i] - right_line[i]) < 20) continue;
             // 找到连续线段，判断k
             float input[3];
             least_square_with_R(line, i, limit, input);
@@ -3061,44 +3072,23 @@ uint8_t find_least_square_start(uint8_t* line, uint8_t start, uint8_t end, uint8
 }
 
 
-
-
-
 // 三级台阶补线
-void mend_stairs(uint8_t* line)
+void mend_stairs()
 {
     float input[2];
-    if (NEAR_LINE - road_start >= 2)
+    if (NEAR_LINE - road_start >= 20)
     {
-        if (road_start - road_end >= 15)
-        {
-            least_square_get_line(line, road_start - 8, 5, input, NEAR_LINE, road_start - 8);
-        }
-        else if (road_start - road_end >= 10)
-        {
-            least_square_get_line(line, road_start - 5, 5, input, NEAR_LINE, road_start - 5);
-        }
-        else {
-            for (int i = NEAR_LINE; i >= road_start; i--)
-            {
-                line[i] = middle;
-            }
-        }
+        uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 5, 0);
+        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1);
+        if (lstart) least_square_get_line(left_line, lstart, 5, input, NEAR_LINE, lstart);
+        if (rstart) least_square_get_line(right_line, rstart, 5, input, NEAR_LINE, rstart);
     }
-    if (road_end - FAR_LINE >= 5)
+    if (road_end - FAR_LINE >= 20)
     {
-        if (road_start - road_end >= 20)
-        {
-            uint8_t f2 = get_line_f2_forward_y(line, road_end + 20, road_end, 5, 5);
-            uint8_t mend_start = min(f2 + 10, NEAR_LINE);
-            least_square_get_line(line, mend_start, min(10, mend_start - f2), input, mend_start, FAR_LINE);
-        }
-        else {
-            for (int i = road_end; i >= FAR_LINE; i--)
-            {
-                line[i] = middle;
-            }
-        }
+        uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 5, 0, true);
+        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1, true);
+        if (lstart) least_square_get_line(left_line, lstart, 5, input, lstart, FAR_LINE);
+        if (rstart) least_square_get_line(right_line, rstart, 5, input, rstart, FAR_LINE);
     }
 }
 
@@ -3278,13 +3268,13 @@ void image_main()
 {
 #if ONBOARD
 #else 
-    now_element = FRONT_STAIRS;
+    now_element = SINGLE_SIDE;
 #endif
     // mid_update = 0;
     datas_init();
     THRE();
     head_clear();
-    search_white_range1();
+    search_white_range();
     find_all_connect();
     find_road_state();
     /*到此处为止，我们已经得到了属于赛道的结构体数组my_road[CAMERA_H]*/
@@ -3324,14 +3314,14 @@ void image_main()
 
     case FRONT_STAIRS:
         calc_stair_distance();
-        mend_stairs(left_line);
-        mend_stairs(right_line);
+        mend_stairs();
+        mend_stairs();
         front_stairs_end_check();
         break;
     case BACK_STAIRS:
         calc_stair_distance();
-        mend_stairs(left_line);
-        mend_stairs(right_line);
+        mend_stairs();
+        mend_stairs();
         back_stairs_end_check();
         break;
     case JOLT:
@@ -3377,6 +3367,7 @@ void image_main()
 #if ONBOARD
 #else
     //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
+    printf("on_single_side_road: %d", on_single_side_road);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;
