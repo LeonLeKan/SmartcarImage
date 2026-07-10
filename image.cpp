@@ -37,8 +37,6 @@ bool jolt_end_flag = 0;
 int error = 0;
 int error_calc_near_line = 52;
 int error_calc_far_line = 50;
-bool on_single_side_road = 0;   // 是否进入单边桥之前的白色赛道
-int on_single_side_road_cnt = 0;
 
 int on_jolt_cnt = 0;
 bool on_jolt = 0;
@@ -752,6 +750,14 @@ void least_square_with_R(uint8_t* line, uint8_t outset, uint8_t limit, float inp
 }
 
 
+// w_near_line, w_far_line：在NEAR_LINE和FAR_LINE处预计的赛道宽度
+int get_expected_road_width(uint8_t i, uint8_t w_near_line = 80, uint8_t w_far_line = 10)
+{
+    float k_width = ((w_near_line - w_far_line) * 1.0) / ((NEAR_LINE - FAR_LINE) * 1.0);
+    int expected_w = k_width * i + w_far_line;
+	return expected_w;
+}
+
 //画线
 void get_line(uint8_t* line, uint8_t start, uint8_t end, float k, float b)
 {
@@ -1097,12 +1103,6 @@ void search_white_range()
     bool found_road_start = 0;
     bool found_road_end = 0;
 
-    // 可调参数：在NEAR_LINE和FAR_LINE处预计的赛道宽度
-    // 用于判断road_start和road_end
-    uint8_t w_near_line = 80, w_far_line = 10;
-    // 根据两个参数计算相应的k
-    float k_width = ((w_near_line - w_far_line) * 1.0) / ((NEAR_LINE - FAR_LINE) * 1.0);
-
     for (i = istart; i >= iend; i--)
     {
         map = &IMG[i][LEFT_SIDE];//指针行走加快访问速度
@@ -1138,7 +1138,7 @@ void search_white_range()
             }
         }
         white_range[i].num = tnum;
-        int expected_w = k_width * i + w_far_line;
+        int expected_w = get_expected_road_width(i);
         if (!found_road_start && longest >= expected_w)
         {
             found_road_start = 1;
@@ -1326,7 +1326,7 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
         if (left_dis < right_dis && left_dis < 15 && left_white->left > 20)
         {
             // 将左边的白条子和当前白条子连接为一个白条
-			my_road[current_line].connected[j_return].left = left_white->left;
+		    my_road[current_line].connected[j_return].left = left_white->left;
         }
         else if (right_dis < left_dis && right_dis < 15 && CAMERA_W - right_white->right > 20)
         {
@@ -1533,7 +1533,7 @@ uint8_t find_least_square_start(uint8_t* line, uint8_t start, uint8_t end, uint8
 		if (change_y == 0) // 线条连续，没有跳变
         {
             // 检查赛道宽度是否合法
-			if (abs(left_line[i] - right_line[i]) < 20) continue;
+			if (right_line[i] - left_line[i] < get_expected_road_width(i)) continue;
             // 找到连续线段，判断k
             float input[3];
             least_square_with_R(line, i, limit, input);
@@ -1567,38 +1567,24 @@ void mend_stairs()
     }
 }
 
-// 远处的单边桥补线
-void mend_far_single_side()
+// 单边桥补线
+void mend_single_side()
 {
     float input[2];
-    if (NEAR_LINE - road_start >= 2 && road_start - road_end >= 10)
+    if (NEAR_LINE - road_start >= 20 && road_start - road_end >= 10)
     {
         uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 5, 0);
         uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1);
         if (lstart) least_square_get_line(left_line, lstart, 6, input, NEAR_LINE, lstart);
         if (rstart) least_square_get_line(right_line, rstart, 6, input, NEAR_LINE, rstart);
-        on_single_side_road_cnt = 0;
-        on_single_side_road = 0;
     }
-    else {
-        int white_count = 0;
-        for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
-        {
-            for (int j = 64; j <= 124; j++)
-            {
-                if (IMG[i][j])
-                    white_count++;
-            }
-        }
-        if (white_count >= 800)
-        {
-            on_single_side_road_cnt++;
-            if (on_single_side_road_cnt > 10)
-            {
-                on_single_side_road = 1;
-            }
-        }
-    }
+    
+    uint8_t left_down_bp = 0, left_up_bp = 0;
+    uint8_t right_down_bp = 0, right_up_bp = 0;
+	for (int i = road_start; i >= road_end; i--)
+	{
+        
+	}
 }
 
 void front_stairs_end_check()
@@ -1702,7 +1688,7 @@ void mend_far_jolt()
         if (white_count >= 800)
         {
             on_jolt_cnt++;
-            if (on_single_side_road_cnt > 10)
+            if (on_jolt_cnt > 10)
             {
                 on_jolt = 1;
             }
@@ -1771,12 +1757,7 @@ void image_main()
     switch (now_element)
     {
     case SINGLE_SIDE:
-        if (!on_single_side_road)
-            mend_far_single_side();
-        else
-        {
-            //general_judgement();
-        }
+        mend_single_side();
         break;
 
     case FRONT_STAIRS:
@@ -1818,12 +1799,13 @@ void image_main()
         }
         break;
     case SINGLE_SIDE:
-        if (on_single_side_road)
-        {
-            if (error > 10 || error < -10) error = 0;
-            if (error < -5) error = -5;
-            if (error > 5) error = 5;
-        }
+        //if (on_single_side_road)
+        //{
+        //    if (error > 10 || error < -10) error = 0;
+        //    if (error < -5) error = -5;
+        //    if (error > 5) error = 5;
+        //}
+        break;
     }
     if (error < -50) error = 0;
     if (error > 50) error = 0;
@@ -1834,18 +1816,18 @@ void image_main()
 #if ONBOARD
 #else
     //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
-    printf("on_single_side_road: %d", on_single_side_road);
-    for (int i = 0; i < CAMERA_W; i++)
-    {
-        IMG[error_calc_near_line][i] = purple;
-        IMG[error_calc_far_line][i] = purple;
-    }
-    for (int i = NEAR_LINE; i >= FAR_LINE; i--)
-        if (mid_line[i] != MISS)
-        {
-            IMG[i][left_line[i]] = blue;
-            IMG[i][right_line[i]] = green;
-            IMG[i][mid_line[i]] = red;
-        }
+    //printf("on_single_side_road: %d", on_single_side_road);
+    //for (int i = 0; i < CAMERA_W; i++)
+    //{
+    //    IMG[error_calc_near_line][i] = purple;
+    //    IMG[error_calc_far_line][i] = purple;
+    //}
+    //for (int i = NEAR_LINE; i >= FAR_LINE; i--)
+    //    if (mid_line[i] != MISS)
+    //    {
+    //        IMG[i][left_line[i]] = blue;
+    //        IMG[i][right_line[i]] = green;
+    //        IMG[i][mid_line[i]] = red;
+    //    }
 #endif
 }
