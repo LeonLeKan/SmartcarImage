@@ -19,7 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="example.cpp" />
     <ClCompile Include="image.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>

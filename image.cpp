@@ -1259,6 +1259,33 @@ void find_road()
     }
 }
 
+static bool check_future(uint8_t i_start, uint8_t j_start)
+{
+    uint8_t dright, dleft, uright, uleft;
+    if (i_start < 5) return true;
+    dleft = my_road[i_start].connected[j_start].left;
+    dright = my_road[i_start].connected[j_start].right;
+    for (uint8_t i = i_start - 1; i > i_start - 10; i--)
+    {
+        bool found_connected = false;
+		for (uint8_t j = 1; j <= my_road[i].white_num; j++)
+		{
+			uleft = my_road[i].connected[j].left;
+			uright = my_road[i].connected[j].right;
+			if (dleft <= uright && dright >= uleft && uright - uleft > 0.3 * get_expected_road_width(i))
+			{
+                dleft = uleft;
+				dright = uright;
+                found_connected = true;
+				break;
+			}
+		}
+        if (!found_connected) return false;
+    }
+    return true;
+}
+
+
 uint8_t find_continue(uint8_t i_start, uint8_t j_start)
 {
     uint8_t j_return;
@@ -1284,6 +1311,8 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
             dright >= uleft
             )
         {
+            //if (i_start >= FAR_LINE + 30 && !check_future(i_start, j_start))
+            //    continue;
             //计算重叠大小
             if (dleft < uleft) left = uleft;
             else left = dleft;
@@ -1579,58 +1608,113 @@ void mend_single_side()
         if (rstart) least_square_get_line(right_line, rstart, 6, input, NEAR_LINE, rstart);
     }
     
-    uint8_t left_bp_H = road_start;
-    
-    while(left_bp_H = get_line_f2_forward_y(left_line, left_bp_H, road_end + 5, 7, 5))
+    if (NEAR_LINE - road_start >= 30) return;
+    int judge_lmr = 0;
+    for (int i = road_start; i >= road_start - 15; i--)
     {
-        if (2 * left_line[left_bp_H] - left_line[left_bp_H - 5] - left_line[left_bp_H + 5] < -7 && 2 * left_line[left_bp_H] - left_line[left_bp_H - 5] - left_line[left_bp_H + 5] > -60 && left_line[left_bp_H] - left_line[left_bp_H - 5] < -7)
+        if (abs(right_line[i] - middle) < 10) judge_lmr = 1;
+        else if (abs(left_line[i] - middle) < 10) judge_lmr = -1;
+        else judge_lmr = 0;
+    }
+
+
+    uint8_t left_bp_down_H = road_start;
+    uint8_t right_bp_down_H = road_start;
+    uint8_t left_bp_up_H = road_start - 15;
+    uint8_t right_bp_up_H = road_start - 15;
+
+    if (judge_lmr == 0 || judge_lmr == 1)
+    {
+        while (left_bp_down_H = get_line_f2_forward_y(left_line, left_bp_down_H, road_end + 5, 7, 5))
         {
-            if (left_bp_H > 50)
+            if (2 * left_line[left_bp_down_H] - left_line[left_bp_down_H - 5] - left_line[left_bp_down_H + 5] < -7 && 2 * left_line[left_bp_down_H] - left_line[left_bp_down_H - 5] - left_line[left_bp_down_H + 5] > -60 && left_line[left_bp_down_H] - left_line[left_bp_down_H - 5] < -7)
             {
-                if (left_line[left_bp_H] > LEFT_SIDE + 15)
-                    break;
+                if (left_bp_down_H > 50)
+                {
+                    if (left_line[left_bp_down_H] > LEFT_SIDE + 15)
+                        break;
+                    else
+                        left_bp_down_H = left_bp_down_H - 1;
+                }
                 else
-                    left_bp_H = left_bp_H - 1;
+                {
+                    break;
+                }
             }
             else
             {
+                left_bp_down_H = left_bp_down_H - 1;
+            }
+        }
+    }
+    if (judge_lmr == 0 || judge_lmr == -1)
+    {
+        while (right_bp_down_H = get_line_f2_forward_y(right_line, right_bp_down_H, road_end + 5, 7, 5))
+        {
+            if (2 * right_line[right_bp_down_H] - right_line[right_bp_down_H - 5] - right_line[right_bp_down_H + 5] > 7 && 2 * right_line[right_bp_down_H] - right_line[right_bp_down_H - 5] - right_line[right_bp_down_H + 5] < 60 && right_line[right_bp_down_H] - right_line[right_bp_down_H - 5] > 7)
+            {
+                if (right_bp_down_H > 50)
+                {
+                    if (right_line[right_bp_down_H] < RIGHT_SIDE - 15)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        right_bp_down_H = right_bp_down_H - 1;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                right_bp_down_H = right_bp_down_H - 1;
+            }
+        }
+    }
+    if (judge_lmr == 1)
+    {
+        for (int i = right_bp_up_H; i >= right_bp_up_H - 20; i--)
+        {
+            if (right_line[i - 4] - right_line[i] > 10)
+            {
+                right_bp_up_H = i - 6;
                 break;
             }
         }
-        else
+    }
+    if (judge_lmr == -1)
+    {
+        for (int i = left_bp_up_H; i >= left_bp_up_H - 20; i--)
         {
-            left_bp_H = left_bp_H - 1;
+            if (left_line[i] - left_line[i - 4] > 10)
+            {
+                left_bp_up_H = i - 6;
+                break;
+            }
         }
     }
 
-    uint8_t right_bp_H = road_start;
-    while (right_bp_H = get_line_f2_forward_y(right_line, right_bp_H, road_end + 5, 7, 5))
+    if (judge_lmr == 0)
     {
-        if (2 * right_line[right_bp_H] - right_line[right_bp_H - 5] - right_line[right_bp_H + 5] > 7 && 2 * right_line[right_bp_H] - right_line[right_bp_H - 5] - right_line[right_bp_H + 5] < 60 && right_line[right_bp_H] - right_line[right_bp_H - 5] > 7)
-        {
-            if (right_bp_H > 50)
-            {
-                if (right_line[right_bp_H] < RIGHT_SIDE - 15)
-                {
-                    break;
-                }
-                else
-                {
-                    right_bp_H = right_bp_H - 1;
-                }
-            }
-            else
-            {
-                break;
-            }
-        }
-        else
-        {
-            right_bp_H = right_bp_H - 1;
-        }
+        if (road_start - left_bp_down_H > 10) least_square_get_line(left_line, left_bp_down_H + 5, 5, input, left_bp_down_H, FAR_LINE);
+        if (road_start - right_bp_down_H > 10) least_square_get_line(right_line, right_bp_down_H + 5, 5, input, right_bp_down_H, FAR_LINE);
     }
-    if(road_start - left_bp_H > 10) least_square_get_line(left_line, left_bp_H + 10, 10, input, left_bp_H, FAR_LINE);
-    if(road_start - right_bp_H > 10) least_square_get_line(right_line, right_bp_H + 10, 10, input, right_bp_H, FAR_LINE);
+    else if (judge_lmr == -1)
+    {
+        if (road_start - 10 - left_bp_up_H > 0) least_square_get_line(left_line, left_bp_up_H, 10, input, NEAR_LINE, left_bp_up_H);
+        if (road_start - 10 - right_bp_down_H > 0) least_square_get_line(right_line, right_bp_down_H + 10, 10, input, right_bp_down_H, FAR_LINE);
+    }
+    else if (judge_lmr == 1)
+    {
+        if (road_start - 10 - left_bp_down_H > 0) least_square_get_line(left_line, left_bp_down_H + 10, 10, input, left_bp_down_H, FAR_LINE);
+        if (road_start - 10 - right_bp_up_H > 0) least_square_get_line(right_line, right_bp_up_H, 10, input, NEAR_LINE, right_bp_up_H);
+
+    }
+    //printf("lmr: %d, left down: %d, right down: %d, left up: %d, right up: %d, base: %d\n", judge_lmr, left_bp_down_H, right_bp_down_H, left_bp_up_H, right_bp_up_H, road_start - 10);
 }
 
 void front_stairs_end_check()
