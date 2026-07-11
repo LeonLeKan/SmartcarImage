@@ -44,6 +44,8 @@ int jolt_distance = 0;
 
 int jolt_end_cnt_thre = 30;
 
+uint8_t single_side_state;
+
 int back_stairs_end_cnt_thre = 15;
 uint8_t mid_update = 0;
 uint8_t middle = 84;    // 中线校准（有些摄像头会整体向左右偏，所以真正的正中间不一定是94）
@@ -1649,6 +1651,7 @@ void mend_stairs()
     }
 }
 
+
 // 单边桥补线
 void mend_single_side()
 {
@@ -1662,6 +1665,7 @@ void mend_single_side()
     }
     
     if (NEAR_LINE - road_start >= 30) return;
+
     int judge_lmr = 0;
     for (int i = road_start; i >= road_start - 20; i--)
     {
@@ -1753,18 +1757,26 @@ void mend_single_side()
 
     if (judge_lmr == 0)
     {
-        if (road_start - left_bp_down_H > 10) least_square_get_line(left_line, left_bp_down_H + 5, 5, input, left_bp_down_H, FAR_LINE);
-        if (road_start - right_bp_down_H > 10) least_square_get_line(right_line, right_bp_down_H + 5, 5, input, right_bp_down_H, FAR_LINE);
+        if (road_start - left_bp_down_H > 10) least_square_get_line(left_line, left_bp_down_H + 10, 10, input, left_bp_down_H, FAR_LINE);
+        if (road_start - right_bp_down_H > 10) least_square_get_line(right_line, right_bp_down_H + 10, 10, input, right_bp_down_H, FAR_LINE);
+        if (NEAR_LINE - right_bp_down_H >= 20 && NEAR_LINE - right_bp_down_H <= 50)
+        {
+            single_side_state = 1;
+        }
+        if (NEAR_LINE - left_bp_down_H >= 20 && NEAR_LINE - left_bp_down_H <= 50)
+        {
+            single_side_state = 1;
+        }
     }
     else if (judge_lmr == -1)
     {
-        if (road_start - 10 - left_bp_up_H > 0) least_square_get_line(left_line, left_bp_up_H, 10, input, NEAR_LINE, left_bp_up_H);
+        if (road_start - 10 - left_bp_up_H > 0) least_square_get_line(left_line, left_bp_up_H - 3, 7, input, NEAR_LINE, left_bp_up_H);
         if (road_start - 10 - right_bp_down_H > 0) least_square_get_line(right_line, right_bp_down_H + 10, 10, input, right_bp_down_H, FAR_LINE);
     }
     else if (judge_lmr == 1)
     {
         if (road_start - 10 - left_bp_down_H > 0) least_square_get_line(left_line, left_bp_down_H + 10, 10, input, left_bp_down_H, FAR_LINE);
-        if (road_start - 10 - right_bp_up_H > 0) least_square_get_line(right_line, right_bp_up_H, 10, input, NEAR_LINE, right_bp_up_H);
+        if (road_start - 10 - right_bp_up_H > 0) least_square_get_line(right_line, right_bp_up_H - 3, 7, input, NEAR_LINE, right_bp_up_H);
 
     }
     
@@ -1774,7 +1786,7 @@ void mend_single_side()
         {
 			if (left_line[error_calc_near_line] - left_line[i] > 10)
 			{
-				least_square_get_line(left_line, i, 5, input, NEAR_LINE, i);
+				least_square_get_line(left_line, i - 3, 6, input, NEAR_LINE, i);
 				break;
 			}
         }
@@ -1785,12 +1797,25 @@ void mend_single_side()
         {
             if (right_line[i] - right_line[error_calc_far_line] > 10)
             {
-                least_square_get_line(right_line, i, 5, input, NEAR_LINE, i);
+                least_square_get_line(right_line, i - 3, 6, input, NEAR_LINE, i);
                 break;
             }
         }
     }
-
+    if (single_side_state)
+    {
+        int count = 0;
+		for (int i = NEAR_LINE - 40; i >= NEAR_LINE - 70; i--)
+		{
+			for (int j = middle - 20; j <= middle + 20; j++)
+			{
+                if (IMG[i][j]) count++;
+			}
+		}
+        if(count < 300)
+			single_side_state = 0;
+    }
+    printf("lmr: %d\n", judge_lmr);
 }
 
 void front_stairs_end_check()
@@ -2005,12 +2030,12 @@ void image_main()
         }
         break;
     case SINGLE_SIDE:
-        //if (on_single_side_road)
-        //{
-        //    if (error > 10 || error < -10) error = 0;
-        //    if (error < -5) error = -5;
-        //    if (error > 5) error = 5;
-        //}
+        if (single_side_state)
+        {
+            if (error > 15 || error < -15) error = 0;
+            if (error < -10) error = -10;
+            if (error > 10) error = 10;
+        }
         break;
     }
     if (error < -50) error = 0;
@@ -2022,7 +2047,7 @@ void image_main()
 #if ONBOARD
 #else
     //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
-    //printf("on_single_side_road: %d", on_single_side_road);
+    //printf("single_side_state: %d\n", single_side_state);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;

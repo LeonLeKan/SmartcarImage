@@ -82,7 +82,7 @@ void load_pic(void) {
     // 2026_05_30_15_single_side 2026_05_30_front_stair 2026_05_30_back_stair
     // 2026_05_21_front_stairs
     // 2026_05_26_single_indoor
-    path = std::format("D:/SmartcarImage/pictures/2026_05_30_15_single_side/Image{}.jpg", pic_num + 10);
+    path = std::format("D:/SmartcarImage/pictures/2026_06_17_single_side/Image{}.jpg", pic_num + 10);
 
     // 使用imread替代cvLoadImage，0表示灰度加载
     pImg_1 = imread(path, IMREAD_GRAYSCALE);
