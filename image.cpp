@@ -37,8 +37,6 @@ bool jolt_end_flag = 0;
 int error = 0;
 int error_calc_near_line = 52;
 int error_calc_far_line = 50;
-bool on_single_side_road = 0;   // 是否进入单边桥之前的白色赛道
-int on_single_side_road_cnt = 0;
 
 int on_jolt_cnt = 0;
 bool on_jolt = 0;
@@ -46,7 +44,10 @@ int jolt_distance = 0;
 
 int jolt_end_cnt_thre = 30;
 
+uint8_t single_side_state;
+
 int back_stairs_end_cnt_thre = 15;
+uint8_t mid_update = 0;
 uint8_t middle = 84;    // 中线校准（有些摄像头会整体向左右偏，所以真正的正中间不一定是94）
 //////////////////////// ////////// //////////////////
 
@@ -86,106 +87,21 @@ all_range white_range[CAMERA_H];//所有白条子
 road my_road[CAMERA_H];//赛道
 road_range myroad_continue[NEW_CAMERA_H];
 uint8_t j_continue[CAMERA_H];
+uint8_t min_i = CAMERA_H;
 uint8_t IMG[CAMERA_H][CAMERA_W];//二值化后图像数组
 uint8_t boundaries[CAMERA_H][CAMERA_W];
 uint8_t left_line[CAMERA_H], right_line[CAMERA_H];//赛道的左右边界
 uint8_t old_left_line[CAMERA_H], old_right_line[CAMERA_H];
 uint8_t mid_line[CAMERA_H];
-float left_line_datas[2] = { 0 };//左边线的斜率和截距
-float right_line_datas[2] = { 0 };//右边线的斜率和截距
-int all_connect_num = 0;//所有白条子数
-uint8_t top_road;//赛道最高处所在行数
-uint8_t mid_choose = 0;
-uint8_t white_num_max = 0;
-uint8_t block = 13;
-uint8_t last_midline = 94;
-
+int all_connect_num = 0;
 uint8_t enable_dis_shadow = 1;     //是否启用去除影子策略
 ///////////////////////// /赛道/ ///////////////////////
 
-//赛道判断所需要的一些数据
-
-//直道
-uint8_t left_f2_y = 0;//左边线二阶导拐点
-uint8_t right_f2_y = 0;//右边线二阶导拐点
-
-//单边桥
-uint8_t single_side_left_f2_y = 0;//左边线突变点
-uint8_t single_side_right_f2_y = 0;//右边线突变点
-uint8_t single_side_white_smller = 0;
-uint8_t single_left_side_y = 0;
-uint8_t single_right_side_y = 0;
-uint8_t single_place = 0;
-uint8_t left_nb = 0;
-uint8_t right_nb = 0;
-uint8_t single_start_fps = 0;
-uint8_t single_start_fps_up;
 float single_dis = 0;
 
 // 颠簸路段
 int jolt_end_judge_cnt = 0;
 int back_stairs_end_judge_cnt = 0;
-
-
-//补线需要的数据
-uint8_t left_guai_H = 0;//左下边界拐点
-uint8_t right_guai_H = 0;//右下边界拐点
-uint8_t left_guai_H2 = 0;//左上边界拐点
-uint8_t right_guai_H2 = 0;//右上边界拐点
-
-//判断状态的参数
-uint8_t step = 0;
-uint8_t pre_step = 0;
-uint8_t yuansu_state = 0;
-uint8_t cross_state = 0;
-uint8_t zebra_state = 0;
-uint8_t roundabout_state = 0;
-uint8_t roadblock_state = 0;
-uint8_t traverse_state = 0;
-uint8_t single_side_state = 0;
-uint8_t ramp_state = 0;
-uint8_t s_state = 0;
-uint8_t single_side_fps = 0;
-uint8_t single_straight_flag = 0;
-uint8_t bend_state = 0;
-//控制横断桥判断的开关
-uint8_t traverse_on = 0;
-
-
-
-//元素计数
-uint8_t traverse_num = 0;
-uint8_t cross_num = 0;
-uint8_t roundabout_num = 0;
-uint8_t ramp_num = 0;
-uint8_t single_num = 0;
-uint8_t zebra_num = 0;
-uint8_t bend_fps = 0;
-uint8_t mid_update = 0;
-uint8_t roadblock_num = 0;
-
-//菜单可调数据
-uint8_t single_round_d = 0;//在第几个环岛后开始判单边桥
-uint8_t single_cross_d = 0;//在过环岛后第几个十字后开始判单边桥
-uint8_t single_block_d = 0;//在经过第几个避障后判坡道
-uint8_t single_u = 100;//最多判几次单边桥
-uint8_t traverse_round_d = 0;//在第几个环岛后开始判横断桥
-uint8_t traverse_cross_d = 0;//在过环岛后第几个十字后开始判横断桥
-uint8_t traverse_u = 100;//最多判几次横断桥
-uint8_t ramp_round_d = 0;//在经过第几个环岛后开始判坡道
-uint8_t ramp_cross_d = 0;//在经过环岛后第几个十字后开始判坡道
-uint8_t ramp_u = 5;//坡道上限
-uint8_t bend_judge_start = 60;
-uint8_t round_out_k = 40;//摄像头越远该数字越大
-uint8_t round_out_b = 30;//摄像头越近该数字越大
-//新增参数
-uint8_t zebra_round_d = 0;
-uint8_t zebra_cross_d = 0;
-//究极人机交互，预防单边桥和避障误判
-uint32_t element_sort = 0;//1代表单边桥，2代表避障，3代表横断桥
-uint8_t element_ok = 0;
-uint8_t element_round_d = 0;
-uint8_t element_cross_d = 0;
 
 
 uint8_t gray_dis[CAMERA_H * CAMERA_W] = { 60, 59, 59, 58, 57, 57, 56, 56, 55, 54, 54, 53, 52, 51, 50, 49, 47, 46, 44, 44, 44, 45, 44, 43, 41, 40, 39, 39, 39, 39, 38, 37, 36, 35, 34, 32, 30, 28, 27, 26, 23, 23, 21, 19, 18, 17, 16, 16, 16, 16, 17, 18, 19, 19, 19, 19, 17, 17, 17, 17, 17, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 17, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 17, 16, 16, 15, 14, 12, 11, 10, 10, 11, 11, 10, 9, 4, 4, 3, 2, 2, 2, 3, 3, 4, 4, 3, 4, 4, 5, 6, 7, 6, 8, 9, 9, 9, 9, 11, 12, 13, 13, 14, 15, 16, 17, 18, 18, 19, 20, 20, 21, 23, 24, 24, 25, 28, 28, 28, 29, 29, 29, 29, 29, 30, 31, 31, 32, 33, 34, 34, 34, 35, 37, 38, 38, 38, 38, 40, 41, 42, 42, 43, 44, 45, 46, 47, 47, 49, 49, 50, 51, 53, 54, 55, 56, 57, 57, 58, 59, 60, 62, 63, 64, 68, 68, 69, 70,
@@ -285,8 +201,6 @@ uint8_t gray_dis[CAMERA_H * CAMERA_W] = { 60, 59, 59, 58, 57, 57, 56, 56, 55, 54
 51, 50, 49, 47, 46, 45, 45, 44, 43, 43, 42, 41, 40, 39, 38, 37, 36, 36, 35, 35, 34, 33, 33, 32, 33, 32, 31, 30, 29, 28, 27, 27, 26, 26, 26, 25, 24, 24, 24, 23, 22, 22, 22, 21, 20, 19, 19, 18, 17, 17, 17, 16, 16, 15, 15, 14, 15, 14, 13, 12, 13, 14, 16, 18, 19, 19, 18, 18, 17, 16, 16, 16, 17, 18, 19, 21, 22, 24, 25, 25, 28, 28, 27, 26, 25, 24, 23, 23, 23, 21, 18, 15, 13, 13, 14, 14, 16, 16, 16, 17, 18, 20, 21, 22, 24, 24, 26, 27, 28, 29, 29, 29, 28, 28, 28, 28, 28, 28, 28, 28, 26, 27, 27, 27, 28, 29, 29, 29, 30, 30, 31, 32, 33, 34, 35, 36, 37, 37, 38, 38, 39, 40, 41, 41, 42, 43, 43, 43, 44, 45, 45, 45, 48, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 58, 58, 59, 61, 60, 62, 64, 65, 65, 66, 68, 69, 73, 75, 77, 78, 79, 81, 83, 84, 85, 86, 88, 89,
 51, 51, 49, 47, 46, 45, 45, 45, 43, 43, 42, 41, 40, 39, 38, 38, 37, 37, 36, 35, 34, 33, 32, 32, 33, 32, 32, 31, 30, 29, 28, 27, 26, 26, 26, 25, 25, 24, 24, 24, 23, 23, 22, 21, 20, 20, 19, 19, 19, 18, 18, 17, 17, 16, 16, 16, 16, 16, 14, 14, 14, 16, 18, 19, 20, 20, 19, 18, 18, 17, 17, 16, 18, 18, 20, 22, 23, 25, 27, 27, 31, 30, 30, 28, 27, 26, 25, 24, 25, 23, 20, 16, 15, 14, 15, 16, 18, 18, 18, 19, 20, 21, 23, 24, 25, 26, 27, 29, 30, 30, 31, 31, 29, 29, 29, 29, 28, 28, 28, 28, 27, 27, 27, 28, 28, 29, 29, 29, 30, 31, 32, 33, 34, 35, 35, 36, 37, 37, 38, 39, 40, 40, 41, 41, 43, 43, 43, 44, 44, 45, 45, 45, 48, 49, 50, 51, 52, 53, 53, 54, 55, 57, 58, 58, 58, 58, 60, 61, 61, 62, 64, 65, 65, 66, 68, 70, 73, 75, 77, 78, 79, 80, 82, 84, 87, 89, 91, 91, };
 
-
-
 static uint8_t max(uint8_t a, uint8_t b) {
     return (a > b) ? a : b;
 }
@@ -295,1193 +209,7 @@ static uint8_t min(uint8_t a, uint8_t b) {
     return (a < b) ? a : b;
 }
 
-//////////////////////////////////
-// 通用检测
-// 检测各种状态
-// 是否进入状态机
-//////////////////////////////////
-void general_judgement() {
-    state_judge();
-    switch (step)
-    {
-    case strai: break;
-    case single_side: single_side_bridge_state_machine(); break;
-    }
-}
 
-
-//单边桥状态机
-void single_side_bridge_state_machine()
-{
-    switch (single_side_state)
-    {
-        //左单边桥在前
-    case 1: {
-        right_guai_H = NEAR_LINE - 10;
-        left_guai_H = NEAR_LINE - 10;
-        while (left_guai_H = get_line_f2_forward_y(left_line, left_guai_H, top_road + 5, 7, 5))
-        {
-            if (2 * left_line[left_guai_H] - left_line[left_guai_H - 5] - left_line[left_guai_H + 5] < -7 && 2 * left_line[left_guai_H] - left_line[left_guai_H - 5] - left_line[left_guai_H + 5] > -60 && left_line[left_guai_H] - left_line[left_guai_H - 5] < -7)
-            {
-                if (left_guai_H > 50)
-                {
-                    if (left_line[left_guai_H] > LEFT_SIDE + 15)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        left_guai_H = left_guai_H - 1;
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
-            else
-            {
-                left_guai_H = left_guai_H - 1;
-            }
-        }
-        while (1)
-        {
-            right_guai_H = get_line_f2_forward_y(right_line, right_guai_H, top_road + 5, 10, 5);
-            if (right_guai_H == 0)
-            {
-                break;
-            }
-            if (right_line[right_guai_H] - right_line[right_guai_H + 5] < 5 && right_line[right_guai_H] - right_line[right_guai_H + 5] > -20 &&
-                right_line[right_guai_H] - right_line[right_guai_H - 5] > 7 && right_line[right_guai_H] - right_line[right_guai_H - 5] < 40)
-            {
-                if (right_guai_H > 50)
-                {
-                    if (right_line[right_guai_H] < RIGHT_SIDE - 15)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        right_guai_H = right_guai_H - 1;
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
-            else
-            {
-                right_guai_H = right_guai_H - 1;
-            }
-        }
-        if (right_guai_H == 0)
-        {
-            right_guai_H = top_road + 5;
-        }
-        if (left_guai_H == 0)
-        {
-            left_guai_H = top_road + 5;
-        }
-        //找单边桥的标志点
-        for (uint8_t i = left_guai_H; i > top_road + 1; i--)
-        {
-            if (left_line[i] - left_line[i - 1] < -10 || (left_line[i] >= left_line[i - 1] && left_line[i] >= left_line[i + 1] && left_line[i] > left_line[i + 2]))
-            {
-                single_place = i;
-                break;
-            }
-        }
-        if (single_place == 0)
-        {
-            single_place = left_guai_H - 3;
-        }
-        //算距离单边桥的直线距离
-        single_dis = sqrt(((NEAR_LINE - single_place) * (NEAR_LINE - single_place) + (mid_line[NEAR_LINE] - left_line[single_place]) * (mid_line[NEAR_LINE] - left_line[single_place])));
-        least_square_get_line(right_line, right_guai_H + 10, 10, right_line_datas, right_guai_H, FAR_LINE);
-        least_square_get_line(left_line, left_guai_H + 10, 10, left_line_datas, left_guai_H, FAR_LINE);
-        if (left_guai_H >= 65)
-        {
-            single_side_state = 3;
-            single_place = 0;
-            single_dis = 0;
-        }
-    }break;
-          //右单边桥在前
-    case 2: {
-        right_guai_H = NEAR_LINE - 10;
-        left_guai_H = NEAR_LINE - 10;
-        while (right_guai_H = get_line_f2_forward_y(right_line, right_guai_H, top_road + 5, 7, 5))
-        {
-            if (2 * right_line[right_guai_H] - right_line[right_guai_H - 5] - right_line[right_guai_H + 5] > 7 && 2 * right_line[right_guai_H] - right_line[right_guai_H - 5] - right_line[right_guai_H + 5] < 60 && right_line[right_guai_H] - right_line[right_guai_H - 5] > 7)
-            {
-                if (right_guai_H > 50)
-                {
-                    if (right_line[right_guai_H] < RIGHT_SIDE - 15)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        right_guai_H = right_guai_H - 1;
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
-            else
-            {
-                right_guai_H = right_guai_H - 1;
-            }
-        }
-        while (1)
-        {
-            left_guai_H = get_line_f2_forward_y(left_line, left_guai_H, top_road + 5, 10, 5);
-            if (left_guai_H == 0)
-            {
-                break;
-            }
-            if (left_line[left_guai_H] - left_line[left_guai_H + 5] > -5 && left_line[left_guai_H] - left_line[left_guai_H + 5] < 20 &&
-                left_line[left_guai_H] - left_line[left_guai_H - 5] < -7 && left_line[left_guai_H] - left_line[left_guai_H - 5] > -40)
-            {
-                if (left_guai_H > 50)
-                {
-                    if (left_line[left_guai_H] > LEFT_SIDE + 15)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        left_guai_H = left_guai_H - 1;
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
-            else
-            {
-                left_guai_H = left_guai_H - 1;
-            }
-        }
-        if (left_guai_H == 0)
-        {
-            left_guai_H = top_road + 5;
-        }
-        if (right_guai_H == 0)
-        {
-            right_guai_H = top_road + 5;
-        }
-        //找单边桥的标志点
-        for (uint8_t i = right_guai_H; i > top_road + 1; i--)
-        {
-            if (right_line[i] - right_line[i - 1] > 10 || (right_line[i] <= right_line[i - 1] && right_line[i] <= right_line[i + 1] && right_line[i] < right_line[i + 2]))
-            {
-                single_place = i;
-                break;
-            }
-        }
-        if (single_place == 0)
-        {
-            single_place = right_guai_H - 3;
-        }
-        single_dis = sqrt(((NEAR_LINE - single_place) * (NEAR_LINE - single_place) + (mid_line[NEAR_LINE] - right_line[single_place]) * (mid_line[NEAR_LINE] - right_line[single_place])));
-        least_square_get_line(right_line, right_guai_H + 10, 10, right_line_datas, right_guai_H, FAR_LINE);
-        least_square_get_line(left_line, left_guai_H + 10, 10, left_line_datas, left_guai_H, FAR_LINE);
-        if (right_guai_H >= 65)
-        {
-            single_side_state = 4;
-            single_place = 0;
-            single_dis = 0;
-        }
-    }break;
-          //正在过左单边桥
-    case 3: {
-        uint8_t NEAR_LINE_white_width = right_line[NEAR_LINE] - left_line[NEAR_LINE];
-        uint8_t left_white_small = 0;
-        uint8_t left_white_larger = 0;
-        uint8_t no_small = 0;
-        uint8_t no_larger = 0;
-        left_guai_H = NEAR_LINE;
-        //判断是否右边为最后一个单边桥
-        right_guai_H = last_one_right_single_check();
-        if (right_guai_H == 0)
-        {
-            //那就说明是最后一个单边桥了，这时候，左边线从NEAR_LINE开始找，找拐点
-            left_white_small = NEAR_LINE - 5;
-            while (left_white_small = get_line_f2_forward_y(left_line, left_white_small, top_road + 10, 10, 5))
-            {
-                if (2 * left_line[left_white_small] - left_line[left_white_small - 5] - left_line[left_white_small + 5] < -10 &&
-                    left_line[left_white_small] - left_line[left_white_small - 5] < -8)
-                {
-                    break;
-                }
-                else
-                {
-                    left_white_small = left_white_small - 1;
-                }
-            }
-            if (left_white_small == 0 || left_white_small < 40)
-            {
-                left_white_small = NEAR_LINE;
-                no_small = 1;
-            }
-            left_white_larger = left_white_small - 5;
-            while (left_white_larger = get_line_f2_forward_y(left_line, left_white_larger, top_road + 10, 10, 5))
-            {
-                if (2 * left_line[left_white_larger] - left_line[left_white_larger - 5] - left_line[left_white_larger + 5] > 5 &&
-                    left_line[left_white_larger] - left_line[left_white_larger - 5] > 8)
-                {
-                    break;
-                }
-                else
-                {
-                    left_white_larger = left_white_larger - 1;
-                }
-            }
-            if (left_white_larger == 0)
-            {
-                left_white_larger = left_white_small;
-                no_larger = 1;
-            }
-            if ((no_small == 1 && no_larger == 1) || (no_small == 1 && no_larger == 0 && left_white_larger <= 40) || (no_small == 0 && no_larger == 1))
-            {
-                left_guai_H = NEAR_LINE - 10;
-            }
-            else if ((no_small == 1 && no_larger == 0 && left_white_larger > 40) || (no_small == 0 && no_larger == 0))
-            {
-                for (uint8_t i = left_white_larger; i > top_road + 7; i--)
-                {
-                    if (left_line[i] < left_line[i - 1] && left_line[i - 1] <= left_line[i - 2] && left_line[i] < left_line[i - 3] && left_line[i - 1] < left_line[i - 4]
-                        && left_line[i - 2] < left_line[i - 5])
-                    {
-                        left_guai_H = i;
-                        break;
-                    }
-                }
-                if (left_guai_H == 0)
-                {
-                    left_guai_H = left_white_larger - 10;
-                }
-
-            }
-            right_guai_H = 35;
-        }
-        else
-        {
-            for (int i = right_guai_H; i < NEAR_LINE; i++)
-            {
-                if (left_line[i] > left_line[i - 1])
-                {
-                    left_guai_H = i - 1;
-                    break;
-                }
-            }
-        }
-        least_square_get_line(left_line, left_guai_H, 10, left_line_datas, NEAR_LINE, FAR_LINE);
-        least_square_get_line(right_line, right_guai_H + 10, 10, right_line_datas, right_guai_H, FAR_LINE);
-        if (left_guai_H >= 68 && right_guai_H <= 40 && NEAR_LINE_white_width > 65 && left_nb == 1)
-        {
-            single_side_state = 0;
-            single_side_fps = 0;
-            step = 0;
-            single_num++;
-            single_straight_flag = 0;
-            left_nb = 0;
-            right_nb = 0;
-        }
-        else if (right_guai_H >= 65 || left_guai_H >= 70)
-        {
-            single_side_state = 4;
-            right_nb = 1;
-        }
-
-    }break;
-          //正在过右单边桥
-    case 4: {
-        uint8_t NEAR_LINE_white_width = right_line[NEAR_LINE] - left_line[NEAR_LINE];
-        uint8_t right_white_small = 0;
-        uint8_t right_white_larger = 0;
-        uint8_t no_small = 0;
-        uint8_t no_larger = 0;
-        right_guai_H = NEAR_LINE;
-        //判断是否为最后一个单边桥
-        left_guai_H = last_one_left_single_check();
-        if (left_guai_H == 0)
-        {
-            //那就说明是最后一个单边桥了，这时候，右边线从NEAR_LINE开始找，找拐点
-            right_white_small = NEAR_LINE - 5;
-            while (right_white_small = get_line_f2_forward_y(right_line, right_white_small, top_road + 10, 10, 5))
-            {
-                if (2 * right_line[right_white_small] - right_line[right_white_small - 5] - right_line[right_white_small + 5] > 10 &&
-                    right_line[right_white_small] - right_line[right_white_small - 5] > 8)
-                {
-                    break;
-                }
-                else
-                {
-                    right_white_small = right_white_small - 1;
-                }
-            }
-
-            if (right_white_small == 0 || right_white_small < 40)
-            {
-                right_white_small = NEAR_LINE;
-                no_small = 1;
-            }
-            right_white_larger = right_white_small - 5;
-            while (right_white_larger = get_line_f2_forward_y(right_line, right_white_larger, top_road + 10, 10, 5))
-            {
-                if (2 * right_line[right_white_larger] - right_line[right_white_larger - 5] - right_line[right_white_larger + 5] < -5 &&
-                    right_line[right_white_larger] - right_line[right_white_larger - 5] < -8)
-                {
-                    break;
-                }
-                else
-                {
-                    right_white_larger = right_white_larger - 1;
-                }
-            }
-            if (right_white_larger == 0)
-            {
-                right_white_larger = right_white_small;
-                no_larger = 1;
-            }
-            if ((no_small == 1 && no_larger == 1) || (no_small == 1 && no_larger == 0 && right_white_larger <= 40) || (no_small == 0 && no_larger == 1))
-            {
-                right_guai_H = NEAR_LINE - 10;
-            }
-            else if ((no_small == 1 && no_larger == 0 && right_white_larger > 40) || (no_small == 0 && no_larger == 0))
-            {
-                for (uint8_t i = right_white_larger; i > top_road + 7; i--)
-                {
-                    if (right_line[i] > right_line[i - 1] && right_line[i - 1] >= right_line[i - 2] && right_line[i - 1] > right_line[i - 4] && right_line[i - 2] > right_line[i - 5]
-                        && right_line[i] > right_line[i - 3])
-                    {
-                        right_guai_H = i;
-                        break;
-                    }
-                }
-                if (right_guai_H == 0)
-                {
-                    right_guai_H = right_white_larger - 10;
-                }
-            }
-            left_guai_H = 35;
-
-        }
-        else
-        {
-            for (int i = left_guai_H; i < NEAR_LINE; i++)
-            {
-                if (right_line[i] < right_line[i - 1])
-                {
-                    right_guai_H = i - 1;
-                    break;
-                }
-            }
-        }
-
-        least_square_get_line(left_line, left_guai_H + 10, 10, left_line_datas, left_guai_H, FAR_LINE);
-        least_square_get_line(right_line, right_guai_H, 10, right_line_datas, NEAR_LINE, FAR_LINE);
-        if (right_guai_H >= 68 && left_guai_H <= 40 && NEAR_LINE_white_width > 65 && right_nb == 1)
-        {
-            single_side_fps = 0;
-            single_side_state = 0;
-            step = 0;
-            single_num++;
-            single_straight_flag = 0;
-            left_nb = 0;
-            right_nb = 0;
-        }
-        else if (left_guai_H >= 65 || right_guai_H >= 70)
-        {
-            single_side_state = 3;
-            left_nb = 1;
-        }
-
-    }break;
-          break;
-    }
-    //printf("single_dis = %f\n", single_dis);
-}
-
-//直道补线
-void straight()
-{
-    uint8_t limit = 40;
-    if (limit + top_road > NEAR_LINE)
-    {
-        limit = NEAR_LINE - top_road - 1;
-    }
-    uint8_t outset = NEAR_LINE;
-    least_square_get_line(left_line, outset, limit, left_line_datas, outset, FAR_LINE);
-    least_square_get_line(right_line, outset, limit, right_line_datas, outset, FAR_LINE);
-}
-
-
-//判断进入直道
-void straight_judge(uint8_t start, uint8_t end)
-{
-    left_f2_y = get_line_f2_forward_y(left_line, start, end, 5, 5);
-    right_f2_y = get_line_f2_forward_y(right_line, start, end, 5, 5);
-}
-
-
-//单边桥判断
-void single_side_bridge_judge(uint8_t start, uint8_t end)
-{
-    uint8_t single_side_left_f2_y2 = 0;//左边线突变点2
-    uint8_t single_side_right_f2_y2 = 0;//右边线突变点2
-    uint8_t single_side_left_f2_y3 = 0;//左边线突变点3
-    uint8_t single_side_right_f2_y3 = 0;//右边线突变点3
-    uint8_t single_right_ok2 = 0;
-    uint8_t single_left_ok2 = 0;
-    uint8_t single_left_side_y2 = get_line_side(left_line, NEAR_LINE - 30, top_road, 5);
-    uint8_t single_right_side_y2 = get_line_side(right_line, NEAR_LINE - 30, top_road, 5);
-    int8_t left_inde_dis = get_line_monotony(left_line, start, top_road + 4, 2);
-    int8_t right_inde_dis = get_line_monotony(right_line, start, top_road + 4, 2);
-    uint8_t single_white_num = 0;
-    uint8_t right_side_num = 0;
-    uint8_t left_side_num = 0;
-    uint8_t white_number = 0;
-    uint8_t white_width_num = 0;
-    float right_y1 = 0;
-    float left_y1 = 0;
-    float right_y2 = 0;
-    float left_y2 = 0;
-    float left_k1 = 0;
-    float left_k2 = 0;
-    float right_k1 = 0;
-    float right_k2 = 0;
-    //先判断左右两边二阶导大于某个值，然后再判断二阶导上方直线的斜率在某个范围
-    //然后继续在上面判断另一个拐角
-    single_side_left_f2_y = start;
-    single_side_right_f2_y = start;
-    //白条子缩短，两边线均存在二阶导，并且两边线二阶导纵坐标距离大于某个值，小于某个值
-    if (left_inde_dis > 1 && right_inde_dis < -1)
-    {
-        single_side_left_f2_y = 0;
-        single_side_right_f2_y = 0;
-    }
-    else
-    {
-        if (right_inde_dis < 0)
-        {
-            while (1)
-            {
-                single_side_left_f2_y = get_line_f2_forward_y(left_line, single_side_left_f2_y, top_road + 4, 6, 5);
-                if (single_side_left_f2_y == 0 || (left_line[single_side_left_f2_y + 1] - left_line[single_side_left_f2_y] > 10))
-                {
-                    single_side_left_f2_y = 0;
-                    break;
-                }
-                else
-                {
-                    if (left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y - 1] < -20)
-                    {
-                        left_y2 = (float)(left_line[single_side_left_f2_y - 2] - left_line[single_side_left_f2_y]);
-                        left_k2 = atan2(left_y2, -1);
-                    }
-                    else
-                    {
-                        least_square(left_line, single_side_left_f2_y, 5, left_line_datas);
-                        left_k2 = atan2(-left_line_datas[0], -1);
-                    }
-                    left_y1 = (float)(left_line[single_side_left_f2_y + 10] - left_line[single_side_left_f2_y]);
-                    left_k1 = atan2(left_y1, 10);
-                    if (left_k2 - left_k1 < 2.4 && left_k2 - left_k1 > 1.15)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        single_side_left_f2_y = single_side_left_f2_y - 1;
-                    }
-                }
-
-            }
-        }
-        else
-        {
-            single_side_left_f2_y = 0;
-        }
-        if (left_inde_dis > 0)
-        {
-            while (1)
-            {
-                single_side_right_f2_y = get_line_f2_forward_y(right_line, single_side_right_f2_y, top_road + 4, 6, 5);
-                if (single_side_right_f2_y == 0 || (right_line[single_side_right_f2_y + 1] - right_line[single_side_right_f2_y]) < -10)
-                {
-                    single_side_right_f2_y = 0;
-                    break;
-                }
-                else
-                {
-                    if (right_line[single_side_right_f2_y] - right_line[single_side_right_f2_y - 1] > 20)
-                    {
-                        right_y2 = (float)(right_line[single_side_right_f2_y - 2] - right_line[single_side_right_f2_y]);
-                        right_k2 = atan2(right_y2, -1);
-                    }
-                    else
-                    {
-                        least_square(right_line, single_side_right_f2_y, 5, right_line_datas);
-                        right_k2 = atan2(-right_line_datas[0], -1);
-                    }
-                    right_y1 = (float)(right_line[single_side_right_f2_y + 10] - right_line[single_side_right_f2_y]);
-                    right_k1 = atan2(right_y1, 10);
-                    if (right_k2 - right_k1 > -2.4 && right_k2 - right_k1 < -1.15)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        single_side_right_f2_y = single_side_right_f2_y - 1;
-                    }
-                }
-            }
-        }
-        else
-        {
-            single_side_right_f2_y = 0;
-        }
-    }
-
-    if (single_side_right_f2_y != 0 && single_side_left_f2_y != 0)
-    {
-        for (uint8_t i = single_side_right_f2_y - 3; i >= top_road; i--)
-        {
-            if (right_line[single_side_right_f2_y] <= right_line[i])
-            {
-                single_side_right_f2_y = 0;
-                break;
-            }
-        }
-    }
-    if (single_side_right_f2_y != 0 && single_side_left_f2_y != 0)
-    {
-        for (uint8_t i = single_side_left_f2_y - 3; i >= top_road; i--)
-        {
-            if (left_line[single_side_left_f2_y] >= left_line[i])
-            {
-                single_side_left_f2_y = 0;
-                break;
-            }
-        }
-    }
-    if (single_side_left_f2_y == 0 && single_side_right_f2_y != 0 && get_straight_line(left_line, 30, top_road + 2, 10) == 0)
-    {
-        //找到单边桥右边的第二个拐点
-        for (uint8_t i = single_side_right_f2_y - 5; i > top_road; i--)
-        {
-            if (right_line[i] <= right_line[i - 1] && right_line[i] <= right_line[i - 2] && right_line[i] < right_line[i - 3])
-            {
-                if (single_side_right_f2_y > 25)
-                {
-                    if (right_line[single_side_right_f2_y] - right_line[i] > 15)
-                    {
-                        single_side_right_f2_y2 = i;
-                    }
-                }
-                else
-                {
-                    single_side_right_f2_y2 = i;
-                }
-                break;
-            }
-        }
-        //找到单边桥右边的第三个拐点
-        for (uint8_t i = top_road + 3; i < single_side_right_f2_y2; i++)
-        {
-            if ((right_line[i] > right_line[i - 3] && right_line[i] >= right_line[i + 1] && right_line[i + 1] >= right_line[i + 2] && right_line[i] - right_line[i + 1] < 7) ||
-                (right_line[i + 1] - right_line[i] > 10 && right_line[i + 1] >= right_line[i] && right_line[i + 2] >= right_line[i + 1]))
-            {
-                for (uint8_t j = i; j < single_side_right_f2_y2; j++)
-                {
-                    if ((right_line[j + 1] - right_line[j] > 0 || right_line[j + 1] - right_line[j] < -5) && single_right_ok2 == 2)
-                    {
-                        single_side_right_f2_y3 = 0;
-                        break;
-                    }
-                    if ((right_line[j + 1] - right_line[j] > 0 || right_line[j + 1] - right_line[j] < -5) && single_right_ok2 == 0)
-                    {
-                        single_right_ok2 = 1;
-                    }
-                    if (single_right_ok2 == 1 && right_line[j + 1] - right_line[j] < -7)
-                    {
-                        single_right_ok2 = 2;
-                        single_side_right_f2_y3 = j + 1;
-                    }
-                    if (j == single_side_right_f2_y2 - 1 && single_right_ok2 == 0)
-                    {
-                        single_side_right_f2_y3 = i;
-                    }
-                    if (j == single_side_right_f2_y2 - 1 && single_right_ok2 == 1)
-                    {
-                        single_side_right_f2_y3 = 0;
-                    }
-                }
-                break;
-            }
-        }
-    }
-    if (single_side_right_f2_y3 != 0 && single_side_right_f2_y2 - single_side_right_f2_y3 > 2)
-    {
-
-        left_y2 = (float)(right_line[single_side_right_f2_y3] - right_line[single_side_right_f2_y2]);
-        left_k2 = atan2(left_y2, single_side_right_f2_y3 - single_side_right_f2_y2);
-        left_y1 = (float)(right_line[single_side_right_f2_y] - right_line[single_side_right_f2_y2]);
-        left_k1 = atan2(left_y1, single_side_right_f2_y - single_side_right_f2_y2);
-        if (left_k2 - left_k1 < 2.4 && left_k2 - left_k1 > 1.05)
-        {
-            single_side_left_f2_y = top_road + 2;
-        }
-    }
-    if (single_side_left_f2_y != 0 && single_side_right_f2_y == 0 && get_straight_line(right_line, 30, top_road + 2, 10) == 0)
-    {
-        //找到单边桥左边的第二个拐点、
-        for (uint8_t i = single_side_left_f2_y - 5; i > top_road; i--)
-        {
-            if (left_line[i] >= left_line[i - 1] && left_line[i] >= left_line[i - 2] && left_line[i] > left_line[i - 3])
-            {
-                if (single_side_left_f2_y > 25)
-                {
-                    if (left_line[i] - left_line[single_side_left_f2_y] > 15)
-                    {
-                        single_side_left_f2_y2 = i;
-                    }
-                }
-                else
-                {
-                    single_side_left_f2_y2 = i;
-                }
-                break;
-            }
-        }
-        //找到单边桥左边的第三个拐点
-        for (uint8_t i = top_road + 3; i < single_side_left_f2_y2; i++)
-        {
-            if ((left_line[i] < left_line[i - 3] && left_line[i] <= left_line[i + 1] && left_line[i + 1] <= left_line[i + 2] && left_line[i] - left_line[i + 1] > -7) ||
-                (left_line[i + 1] - left_line[i] < -10 && left_line[i + 1] <= left_line[i] && left_line[i + 2] <= left_line[i + 1]))
-            {
-                for (uint8_t j = i; j < single_side_left_f2_y2; j++)
-                {
-                    if ((left_line[j + 1] - left_line[j] < 0 || left_line[j + 1] - left_line[j] > 5) && single_left_ok2 == 2)
-                    {
-                        single_side_left_f2_y3 = 0;
-                        break;
-                    }
-                    if ((left_line[j + 1] - left_line[j] < 0 || left_line[j + 1] - left_line[j] > 5) && single_left_ok2 == 0)
-                    {
-                        single_left_ok2 = 1;
-                    }
-                    if (left_line[j + 1] - left_line[j] > 7 && single_left_ok2 == 1)
-                    {
-                        single_left_ok2 = 2;
-                        single_side_left_f2_y3 = j + 1;
-                    }
-                    if (j == single_side_left_f2_y2 - 1 && single_left_ok2 == 0)
-                    {
-                        single_side_left_f2_y3 = i;
-                    }
-                    if (j == single_side_left_f2_y2 - 1 && single_left_ok2 == 1)
-                    {
-                        single_side_left_f2_y3 = 0;
-                    }
-                }
-                break;
-            }
-        }
-    }
-    if (single_side_left_f2_y3 != 0 && single_side_left_f2_y2 - single_side_left_f2_y3 > 2)
-    {
-        right_y2 = (float)(left_line[single_side_left_f2_y3] - left_line[single_side_left_f2_y2]);
-        right_k2 = atan2(right_y2, single_side_left_f2_y3 - single_side_left_f2_y2);
-        right_y1 = (float)(left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y2]);
-        right_k1 = atan2(right_y1, single_side_left_f2_y - single_side_left_f2_y2);
-        if (right_k2 - right_k1 > -2.4 && right_k2 - right_k1 < -1.05)
-        {
-            single_side_right_f2_y = top_road + 2;
-        }
-    }
-    if (get_straight_line(right_line, 30, single_side_right_f2_y, 10) != 0)
-    {
-        single_side_right_f2_y = 0;
-    }
-    if (get_straight_line(left_line, 30, single_side_left_f2_y, 10) != 0)
-    {
-        single_side_left_f2_y = 0;
-    }
-    //如果左边还没找到横断桥拐点
-    if (single_side_left_f2_y == 0 && single_side_right_f2_y != 0)
-    {
-        for (uint8_t i = single_side_right_f2_y; i > top_road; i--)
-        {
-            if (my_road[i].white_num > 1)
-            {
-                single_white_num++;
-                if (single_white_num >= 3)
-                {
-                    break;
-                }
-            }
-        }
-        if (single_white_num >= 3)
-        {
-            for (uint8_t i = single_side_right_f2_y; i > top_road + 1; i--)
-            {
-                if (right_line[i] - right_line[i - 1] - left_line[i] + left_line[i - 1] < -10)
-                {
-                    break;
-                }
-                if (right_line[i] - right_line[i - 1] >= 15)
-                {
-                    if (get_straight_line(right_line, i - 5, top_road, 4) == 0)
-                    {
-                        single_side_left_f2_y = single_side_right_f2_y;
-                        single_side_right_f2_y = single_side_left_f2_y - 6;
-                    }
-                    break;
-                }
-            }
-            //防止多弯道判成单边桥,对top_road上方的白条子进行宽度和条数检测
-            for (uint8_t i = top_road; i > FAR_LINE; i--)
-            {
-                if (my_road[i].white_num == 0)
-                {
-                    break;
-                }
-                if (my_road[i].white_num >= 2)
-                {
-                    white_number++;
-                }
-                for (uint8_t j = 1; j <= my_road[i].white_num; j++)
-                {
-                    if (my_road[i].connected[j].width > 10)
-                    {
-                        white_width_num++;
-                    }
-                }
-            }
-        }
-        single_white_num = 0;
-    }
-    //如果右边还没找到右拐点
-    if (single_side_right_f2_y == 0 && single_side_left_f2_y != 0)
-    {
-        for (uint8_t i = single_side_left_f2_y; i > top_road; i--)
-        {
-            if (my_road[i].white_num > 1)
-            {
-                single_white_num++;
-            }
-        }
-        if (single_white_num >= 3)
-        {
-            for (uint8_t i = single_side_left_f2_y; i > top_road + 1; i--)
-            {
-                if (right_line[i] - right_line[i - 1] - left_line[i] + left_line[i - 1] < -10)
-                {
-                    break;
-                }
-                if (left_line[i] - left_line[i - 1] <= -15)
-                {
-                    if (get_straight_line(left_line, i - 1, top_road, 5) == 0)
-                    {
-                        single_side_right_f2_y = single_side_left_f2_y;
-                        single_side_left_f2_y = single_side_right_f2_y - 6;
-                    }
-                    break;
-                }
-            }
-            //防止多弯道判成单边桥,对top_road上方的白条子进行宽度和条数检测
-            for (uint8_t i = top_road; i > FAR_LINE; i--)
-            {
-                if (my_road[i].white_num == 0)
-                {
-                    break;
-                }
-                if (my_road[i].white_num >= 2)
-                {
-                    white_number++;
-                }
-                for (uint8_t j = 1; j <= my_road[i].white_num; j++)
-                {
-                    if (my_road[i].connected[j].width > 10)
-                    {
-                        white_width_num++;
-                    }
-                }
-            }
-        }
-        single_white_num = 0;
-    }
-    //贴边数
-    for (uint8_t i = NEAR_LINE; i > top_road; i--)
-    {
-        if (right_line[i] > RIGHT_SIDE - 4)
-        {
-            right_side_num++;
-        }
-        if (left_line[i] < LEFT_SIDE + 4)
-        {
-            left_side_num++;
-        }
-    }
-
-    if (((single_side_left_f2_y > 15 && single_side_right_f2_y > 15) || (single_side_left_f2_y > 23 || single_side_right_f2_y > 23) && (single_side_left_f2_y > 7 && single_side_right_f2_y > 7)) &&
-        (single_side_left_f2_y - single_side_right_f2_y > 5 || single_side_left_f2_y - single_side_right_f2_y < -5) &&
-        (single_left_side_y == 0 || single_right_side_y == 0) && right_line[top_road + 2] - left_line[top_road + 2] < 60
-        && left_side_num < 20 && right_side_num < 20 && white_number < 11 && white_width_num < 10 &&
-        roundabout_num >= single_round_d && cross_num >= single_cross_d && single_num < single_u && roadblock_num >= single_block_d)
-    {
-        single_side_fps++;
-        if ((single_side_left_f2_y - single_side_right_f2_y) > 5 && single_side_fps == 3)
-        {
-            step = single_side;
-            single_side_state = 1;
-            single_side_fps = 0;
-        }
-        if ((single_side_left_f2_y - single_side_right_f2_y) < -5 && single_side_fps == 3)
-        {
-            step = single_side;
-            single_side_state = 2;
-            single_side_fps = 0;
-        }
-    }
-    else
-    {
-        single_side_fps = 0;
-    }
-    /*printf("左拐点2 = %d,左拐点3 = %d, 左斜率1 = %f,左斜率2 = %f\n", single_side_left_f2_y2, single_side_left_f2_y3, right_k1, right_k2);
-    printf("右拐点2 = %d,右拐点3 = %d, 右斜率1 = %f,右斜率2 = %f\n", single_side_right_f2_y2, single_side_right_f2_y3, left_k1, left_k2);*/
-}
-//单边桥判断2,直道判断单边桥
-void single_side_bridge_judge2(uint8_t start)
-{
-    uint8_t single_right_guai = 0;
-    uint8_t single_left_guai = 0;
-    uint8_t single_left_ok = 0;
-    uint8_t single_right_ok = 0;
-    uint8_t singel_right_ok = 0;
-    uint8_t ok1 = 0;
-    uint8_t ok2 = 0;
-    uint8_t ok3 = 0;
-    uint8_t single_ok = 0;
-    uint8_t single_white_num = 0;
-
-    for (uint8_t i = top_road; i < top_road + 10; i++)
-    {
-        if (my_road[i].white_num > 1)
-        {
-            single_white_num++;
-        }
-    }
-    //白条子缩短，两边线均存在二阶导，并且两边线二阶导纵坐标距离大于某个值，小于某个值
-    single_left_side_y = get_line_side(left_line, start, top_road, 10);
-    single_right_side_y = get_line_side(right_line, start, top_road, 10);
-    single_side_white_smller = get_white_width_small(start, top_road, 10);
-    single_side_left_f2_y = start;
-    single_side_right_f2_y = start;
-    while (single_side_left_f2_y = get_line_f2_forward_y(left_line, single_side_left_f2_y, top_road + 2, 10, 3))
-    {
-        if (left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y + 1] > -4 && left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y + 1] < 3 && left_line[single_side_left_f2_y + 2] > LEFT_SIDE + 5 &&
-            left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y - 1] < -2 && 2 * left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y + 3] - left_line[single_side_left_f2_y - 3] < -5)
-        {
-            if (left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y - 1] < -2 && left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y - 1] > -5)
-            {
-                if (left_line[single_side_left_f2_y - 1] - left_line[single_side_left_f2_y - 2] < -2 && left_line[single_side_left_f2_y - 2] - left_line[single_side_left_f2_y - 3] < -2)
-                {
-                    ok3 = 1;
-                }
-            }
-            else
-            {
-                ok3 = 1;
-            }
-            if (ok3 == 1)
-            {
-                for (uint8_t i = single_side_left_f2_y; i > top_road + 3; i--)
-                {
-                    if (left_line[i] - left_line[i - 4] < 7 && left_line[i] - left_line[i - 4] > -7 && left_line[i] - left_line[i + 3] > 9 && left_line[i] > LEFT_SIDE + 5)
-                    {
-                        single_left_ok = 1;
-                        break;
-                    }
-                }
-                if (single_left_ok == 0)
-                {
-                    for (uint8_t i = single_side_left_f2_y; i > top_road + 1; i--)
-                    {
-                        if (left_line[i] - left_line[i - 2] > -2 && left_line[i] - left_line[i - 2] < 2 && left_line[i] - left_line[i + 3] > 6)
-                        {
-                            single_left_ok = 1;
-                            break;
-                        }
-                    }
-                }
-                if (single_left_ok == 0)
-                {
-                    single_side_left_f2_y = 0;
-                }
-                break;
-            }
-        }
-        if (left_line[single_side_left_f2_y] - left_line[single_side_left_f2_y - 3] > 20)
-        {
-            single_side_left_f2_y = 0;
-            break;
-        }
-        else
-        {
-            single_side_left_f2_y = single_side_left_f2_y - 1;
-        }
-    }
-    ok3 = 0;
-    while (single_side_right_f2_y = get_line_f2_forward_y(right_line, single_side_right_f2_y, top_road + 2, 10, 3))
-    {
-        if (right_line[single_side_right_f2_y + 1] - right_line[single_side_right_f2_y] > -4 && right_line[single_side_right_f2_y + 1] - right_line[single_side_right_f2_y] < 3 && right_line[single_side_right_f2_y + 2] < RIGHT_SIDE - 5 &&
-            right_line[single_side_right_f2_y - 1] - right_line[single_side_right_f2_y] < -2 && 2 * right_line[single_side_right_f2_y] - right_line[single_side_right_f2_y + 3] - right_line[single_side_right_f2_y - 3] > 5)
-        {
-            if (right_line[single_side_right_f2_y - 1] - right_line[single_side_right_f2_y] < -2 && right_line[single_side_right_f2_y - 1] - right_line[single_side_right_f2_y] > -5)
-            {
-                if (right_line[single_side_right_f2_y - 2] - right_line[single_side_right_f2_y - 1] < -2 && right_line[single_side_right_f2_y - 3] - right_line[single_side_right_f2_y - 2] < -2)
-                {
-                    ok3 = 1;
-                }
-            }
-            else
-            {
-                ok3 = 1;
-            }
-            if (ok3 == 1)
-            {
-                for (uint8_t i = single_side_right_f2_y; i > top_road + 3; i--)
-                {
-                    if (right_line[i] - right_line[i - 4] < 7 && right_line[i] - right_line[i - 4] > -7 && right_line[i] - right_line[i + 3] < -10 && right_line[i] < RIGHT_SIDE - 5)
-                    {
-                        single_right_ok = 1;
-                        break;
-                    }
-                }
-                if (single_right_ok == 0)
-                {
-                    for (uint8_t i = single_side_right_f2_y; i > top_road + 1; i--)
-                    {
-                        if (right_line[i] - right_line[i - 2] < 2 && right_line[i] - right_line[i - 2] > -2 && right_line[i] - right_line[i + 3] < -6)
-                        {
-                            single_right_ok = 1;
-                            break;
-                        }
-                    }
-                }
-                if (single_right_ok == 0)
-                {
-                    single_side_right_f2_y = 0;
-                }
-                break;
-            }
-        }
-        ok3 = 0;
-        if (right_line[single_side_right_f2_y] - right_line[single_side_right_f2_y - 3] < -20)
-        {
-            single_side_right_f2_y = 0;
-            break;
-        }
-        else
-        {
-            single_side_right_f2_y = single_side_right_f2_y - 1;
-        }
-    }
-    if (get_straight_line(right_line, NEAR_LINE - 30, single_side_right_f2_y, 5) != 0)
-    {
-        single_side_right_f2_y = 0;
-    }
-    if (get_straight_line(left_line, NEAR_LINE - 30, single_side_left_f2_y, 5) != 0)
-    {
-        single_side_left_f2_y = 0;
-    }
-    if (single_side_right_f2_y > 5)
-    {
-        for (int i = single_side_right_f2_y - 5; i > single_side_right_f2_y - 15; i--)
-        {
-            if (left_line[i] == MISS)
-            {
-                break;
-            }
-            else if (right_line[i] - right_line[i + 1] > 5 && right_line[i] > right_line[single_side_right_f2_y + 3] + 5)
-            {
-                ok1 = 1;
-                break;
-            }
-        }
-    }
-    if (single_left_side_y > 5)
-    {
-        for (int i = single_side_left_f2_y - 5; i > single_side_left_f2_y - 15; i--)
-        {
-            if (left_line[i] == MISS)
-            {
-                break;
-            }
-            else if (left_line[i] - left_line[i + 1] < -5 && left_line[i] < left_line[single_side_left_f2_y + 3] + 5)
-            {
-                ok1 = 1;
-                break;
-            }
-        }
-    }
-
-    //如果漫水法因为单边桥没有满上去
-    if (single_side_right_f2_y >= 10 && single_side_left_f2_y == 0 && get_straight_line(left_line, NEAR_LINE - 50, top_road + 4, 10) == 0)
-    {
-        for (uint8_t i = single_side_right_f2_y - 3; i > top_road; i--)
-        {
-            if (right_line[i] - right_line[single_side_right_f2_y - 3] > 4 || right_line[i] - right_line[single_side_right_f2_y - 3] < -4)
-            {
-                single_ok = 1;
-                break;
-            }
-        }
-        if (single_ok == 1)
-        {
-            single_side_left_f2_y = 0;
-        }
-        else
-        {
-            single_side_left_f2_y = top_road;
-        }
-    }
-    else if (single_side_left_f2_y >= 10 && single_side_right_f2_y == 0 && get_straight_line(right_line, NEAR_LINE - 50, top_road + 4, 10) == 0)
-    {
-        for (uint8_t i = single_side_left_f2_y - 3; i > top_road; i--)
-        {
-            if (left_line[i] - left_line[single_side_left_f2_y - 3] > 4 || left_line[i] - left_line[single_side_left_f2_y - 3] < -4)
-            {
-                single_ok = 1;
-                break;
-            }
-        }
-        if (single_ok == 1)
-        {
-            single_side_right_f2_y = 0;
-        }
-        else
-        {
-            single_side_right_f2_y = top_road;
-        }
-    }
-
-    if (single_side_white_smller >= 6 && single_side_left_f2_y >= 5 && single_side_right_f2_y >= 5 &&
-        single_left_side_y == 0 && single_right_side_y == 0 && ok1 == 0 &&
-        ((single_side_left_f2_y - single_side_right_f2_y) >= 4 || (single_side_left_f2_y - single_side_right_f2_y) <= -4) &&
-        roundabout_num >= single_round_d && cross_num >= single_cross_d && single_num < single_u)
-    {
-        if (step == cross)
-        {
-            yuansu_state = single_side;
-        }
-        else
-        {
-            step = single_side;
-        }
-        if ((single_side_left_f2_y - single_side_right_f2_y) >= 4)
-        {
-            single_side_state = 1;
-        }
-        if ((single_side_left_f2_y - single_side_right_f2_y) <= -4)
-        {
-            single_side_state = 2;
-        }
-    }
-    //printf("ok2 = %d\n", ok2);
-    //printf("single_side_white_smller = %d,single_side_left_f2_y = %d,single_side_right_f2_y = %d\nsingle_left_side_y = %d,single_right_side_y = %d,ok1 = %d, road_max = %d,black_duty = %f\n", 
-    //    single_side_white_smller, single_side_left_f2_y, single_side_right_f2_y, single_left_side_y, single_right_side_y, ok1 ,road_max,black_duty);
-}
-
-//总体判断
-void state_judge()
-{
-    switch (yuansu_state)
-    {
-    case single_side: {
-        if (step == 0)
-        {
-            step = single_side;
-            yuansu_state = 0;
-        }
-    }break;
-    }
-    switch (step)
-    {
-    case strai:
-    {
-        single_side_bridge_judge2(NEAR_LINE - 20);
-        if (step != single_side && element_sort % 10 == 1)
-        {
-            single_side_bridge_judge(50, top_road + 5);
-        }
-    }break;
-    }
-}
-////////////////////////////////////////////
-//功能：判断右边是否为最后一个单边桥
-//输入：
-//输出：如果是最后一个单边桥，输出右拐点为零，如果不是最后一个单边桥，输出右拐点
-//备注：
-///////////////////////////////////////////
-uint8_t last_one_right_single_check(void)
-{
-    uint8_t right_x = NEAR_LINE - 10;
-    while (1)
-    {
-        right_x = get_line_f2_forward_y(right_line, right_x, top_road + 10, 7, 5);
-        if (right_x == 0)
-        {
-            break;
-        }
-        if ((right_line[right_x - 6] - right_line[right_x - 9]) > -4 && right_line[right_x] > right_line[right_x - 6] &&
-            (right_line[right_x - 6] - right_line[right_x - 9]) < 4 && right_line[right_x] > middle && right_line[right_x - 5] > 74 &&
-            (right_line[right_x] - left_line[right_x] - right_line[right_x - 8] + left_line[right_x - 8]) > 13 && right_line[right_x] - right_line[right_x - 6] > 7
-            && (right_line[right_x] - left_line[right_x] - right_line[right_x - 8] + left_line[right_x - 8]) < 60)
-        {
-            break;
-        }
-        else
-        {
-            right_x = right_x - 1;
-        }
-    }
-    return right_x;
-}
-////////////////////////////////////////////
-//功能：判断左边是否为最后一个单边桥
-//输入：
-//输出：如果是最后一个单边桥，输出左拐点为零，如果不是最后一个单边桥，输出左拐点
-//备注：
-///////////////////////////////////////////
-uint8_t last_one_left_single_check(void)
-{
-    uint8_t left_x = NEAR_LINE - 10;
-    while (left_x = get_line_f2_forward_y(left_line, left_x, top_road + 5, 7, 5))
-    {
-        if ((left_line[left_x - 6] - left_line[left_x - 9]) > -4 &&
-            (left_line[left_x - 6] - left_line[left_x - 9]) < 4 && left_line[left_x] < middle && left_line[left_x - 5] < 114 &&
-            (right_line[left_x] - left_line[left_x] - right_line[left_x - 8] + left_line[left_x - 8]) > 13 && left_line[left_x - 6] - left_line[left_x] > 7
-            && (right_line[left_x] - left_line[left_x] - right_line[left_x - 8] + left_line[left_x - 8]) < 60)
-        {
-            break;
-        }
-        else
-        {
-            left_x = left_x - 1;
-        }
-    }
-    return left_x;
-}
 //计算白条子变多的函数
 uint8_t get_white_num_more_y(uint8_t start, uint8_t end)
 {
@@ -1542,9 +270,9 @@ uint8_t get_white_num_most_y(uint8_t start, uint8_t end)
 ///////////////////////////////////////////
 uint8_t get_line_change(uint8_t* line, uint8_t start, uint8_t end, uint8_t change_limit)
 {
-    if (top_road > end)
+    if (road_end > end)
     {
-        end = top_road;
+        end = road_end;
     }
     uint8_t line_change = 0;
     for (int i = start; i > end; i--)
@@ -1571,7 +299,7 @@ uint8_t get_line_f2_max_y(uint8_t* line, uint8_t start, uint8_t end)
     {
 
         int8_t line_f2 = 2 * line[i] - line[i - 5] - line[i + 5];
-        if (i == top_road)
+        if (i == road_end)
         {
             break;
         }
@@ -1687,7 +415,7 @@ uint8_t get_line_side(uint8_t* line, uint8_t start, uint8_t end, uint8_t limit)
     uint8_t side_y = 0;
     for (int i = start; i > end; i--)
     {
-        if (i == top_road)
+        if (i == road_end)
         {
             break;
         }
@@ -1833,7 +561,7 @@ uint8_t get_left_line_x_max_y(uint8_t* line, uint8_t start, uint8_t end)
         }
         if (line[i] == MISS)
         {
-            line_x_max_y = top_road;
+            line_x_max_y = road_end;
             break;
         }
     }
@@ -1916,7 +644,7 @@ uint8_t get_least_square_limit(uint8_t* line, uint8_t outset, uint8_t end, uint8
     }
     if (outset - change <= start)
     {
-        limit = outset - top_road;
+        limit = outset - road_end;
     }
     return limit;
 }
@@ -2025,6 +753,14 @@ void least_square_with_R(uint8_t* line, uint8_t outset, uint8_t limit, float inp
 }
 
 
+// w_near_line, w_far_line：在NEAR_LINE和FAR_LINE处预计的赛道宽度
+int get_expected_road_width(uint8_t i, uint8_t w_near_line = 80, uint8_t w_far_line = 10)
+{
+    float k_width = ((w_near_line - w_far_line) * 1.0) / ((NEAR_LINE - FAR_LINE) * 1.0);
+    int expected_w = k_width * i + w_far_line;
+	return expected_w;
+}
+
 //画线
 void get_line(uint8_t* line, uint8_t start, uint8_t end, float k, float b)
 {
@@ -2068,216 +804,6 @@ void two_dots_line(uint8_t dots1_H, uint8_t dots1_W, uint8_t dots2_H, uint8_t do
             line_now[i] = RIGHT_SIDE;
         }
         line[i] = (uint8_t)line_now[i];
-    }
-}
-
-
-
-////////////////////////////////////////////
-//功能：讲道路重新进行选择
-//输入：
-//输出：
-//备注：
-///////////////////////////////////////////
-void renew_road()
-{
-    uint8_t biaozhi = (right_line[NEAR_LINE] + left_line[NEAR_LINE]) / 2;
-    uint8_t j_now = 0;
-    uint8_t j_continue = 0;
-    uint8_t judge_middle = 0;
-    uint8_t judge_dis = 0;
-    uint8_t width_limit = 0;
-    uint8_t dis = 0;//离标志位的最近距离
-    //取NEAR_LINE一行的白条子编号
-    for (uint8_t i = 1; i <= my_road[NEAR_LINE].white_num; i++)
-    {
-        if (left_line[NEAR_LINE] == my_road[NEAR_LINE].connected[i].left)
-        {
-            j_continue = i;
-            break;
-        }
-    }
-
-    for (uint8_t i = NEAR_LINE - 1; i > 0; i--)
-    {
-        judge_middle = 0;
-        judge_dis = 0;
-        dis = 255;
-        if (my_road[i].white_num >= 5)
-        {
-            width_limit = 0;
-        }
-        else
-        {
-            width_limit = 10;
-        }
-        for (uint8_t j = 1; j <= my_road[i].white_num; j++)
-        {
-            if (j_continue == MISS)
-            {
-                break;
-            }
-            //首先得让上下两个白条子相邻
-            if ((my_road[i].connected[j].left <= my_road[i + 1].connected[j_continue].right) &&
-                (my_road[i].connected[j].right >= my_road[i + 1].connected[j_continue].left))
-            {
-                //其次得让白条子在中间
-                if (my_road[i].connected[j].left <= biaozhi && my_road[i].connected[j].right >= biaozhi && (my_road[i].connected[j].width) >= width_limit)
-                {
-                    j_now = j;
-                    judge_middle = 1;
-                    break;
-                }
-                //如果白条子不在中间的话，就找离标志最近的
-                if (judge_middle == 0 && abs((my_road[i].connected[j].right + my_road[i].connected[j].left) / 2 - biaozhi) < dis && (my_road[i].connected[j].width) >= width_limit)
-                {
-                    j_now = j;
-                    dis = abs((my_road[i].connected[j].right + my_road[i].connected[j].left) / 2 - biaozhi);
-                    judge_dis = 1;
-                }
-            }
-        }
-        if (judge_dis == 0 && judge_middle == 0)
-        {
-            j_now = MISS;
-            j_continue = MISS;
-        }
-        if (j_now <= my_road[i].white_num)
-        {
-            left_line[i] = my_road[i].connected[j_now].left;
-            right_line[i] = my_road[i].connected[j_now].right;
-            j_continue = j_now;
-        }
-        else
-        {
-            j_now = MISS;
-            j_continue = MISS;
-            left_line[i] = MISS;
-            right_line[i] = MISS;
-        }
-    }
-    for (uint8_t i = FAR_LINE; i <= NEAR_LINE; i++)
-    {
-        if (right_line[i] != MISS)
-        {
-            top_road = i;
-            break;
-        }
-    }
-}
-
-void single_side_bridge_two_line(uint8_t* road_continue)
-{
-    uint8_t white_length;//记录白色的长度
-    uint8_t white_length_m = 0;;
-    uint8_t mid_x;//白条子中点x坐标
-    uint8_t mid_y;//白条子中点y坐标
-    uint8_t j_con;
-    for (uint8_t i = NEAR_LINE - 1; i > FAR_LINE; i--)
-    {
-        white_length_m = 0;
-        mid_x = 0;
-        mid_y = 0;
-        j_con = MISS;
-        if (road_continue[i + 1] > my_road[i + 1].white_num)
-        {
-            road_continue[i] = MISS;
-        }
-        else
-        {
-            for (uint8_t j = 1; j <= my_road[i].white_num; j++)
-            {
-                white_length = 0;
-                if ((my_road[i].connected[j].left <= my_road[i + 1].connected[road_continue[i + 1]].right) &&
-                    (my_road[i].connected[j].right >= my_road[i + 1].connected[road_continue[i + 1]].left))
-                {
-                    if (my_road[i].white_num == 1)
-                    {
-                        j_con = j;
-                        break;
-                    }
-                    mid_x = (my_road[i].connected[j].left + my_road[i].connected[j].right) / 2;
-                    mid_y = i;
-                    for (uint8_t k = mid_y; k > FAR_LINE; k--)
-                    {
-                        if (IMG[k][mid_x] == white)
-                        {
-                            white_length++;
-                        }
-                        if (IMG[k][mid_x] == black)
-                        {
-                            break;
-                        }
-                    }
-                    if (white_length >= white_length_m)
-                    {
-                        j_con = j;
-                        white_length_m = white_length;
-                    }
-                }
-            }
-            road_continue[i] = j_con;
-        }
-    }
-}
-void single_side_road_choose(void)
-{
-    uint8_t istart = NEAR_LINE;
-    uint8_t iend = FAR_LINE;
-    //top_road = NEAR_LINE;//赛道最高处所在行数，先初始化话为最低处
-    int road_f = -1;//赛道所在连通域父节点编号，先初始化为-1，以判断是否找到赛道
-    int while_range_num = 0, roud_while_range_num = 0;
-    all_range* twhite_range = NULL;
-    road* tmy_road = NULL;
-    uint8_t mid_x = 0, mid_y = 0;
-    uint8_t white_length_m = 0, white_length = 0;
-    uint8_t choose_i = 0;
-    //寻找赛道所在连通域
-    // 寻找最中心的白条子
-    for (int i = 1; i <= white_range[istart].num; i++)
-    {
-        if (white_range[istart].area[i].right - white_range[istart].area[i].left > 30)
-        {
-            mid_x = (white_range[istart].area[i].left + white_range[istart].area[i].right) / 2;
-            white_length = 0;
-            for (uint8_t j = istart; j > FAR_LINE; j--)
-            {
-                if (IMG[j][mid_x] == white)
-                {
-                    white_length++;
-                }
-                else if (IMG[j][mid_x] == black)
-                {
-                    break;
-                }
-            }
-            if (white_length > white_length_m)
-            {
-                choose_i = i;
-                white_length_m = white_length;
-            }
-        }
-    }
-    road_f = find_f(white_range[istart].area[choose_i].connect_num);
-    //现在我们已经得到了赛道所在连通域父节点编号，接下来把所有父节点编号是road_f的所有白条子扔进赛道数组就行了
-    for (int i = istart; i >= iend; i--)
-    {
-        //变量保存，避免之后写的冗杂且低效
-        twhite_range = &white_range[i];
-        tmy_road = &my_road[i];
-        while_range_num = twhite_range->num;//每行白条数量
-        tmy_road->white_num = 0;
-        roud_while_range_num = 0;
-        for (int j = 1; j <= while_range_num; j++)
-        {
-            if (find_f(twhite_range->area[j].connect_num) == road_f)
-            {
-                tmy_road->white_num++; roud_while_range_num++;
-                tmy_road->connected[roud_while_range_num].left = twhite_range->area[j].left;
-                tmy_road->connected[roud_while_range_num].right = twhite_range->area[j].right;
-                tmy_road->connected[roud_while_range_num].width = twhite_range->area[j].right - twhite_range->area[j].left;
-            }
-        }
     }
 }
 
@@ -2411,8 +937,6 @@ void THRE(void)
     }
 }
 
-
-
 ////////////////////////////////////////////
 //功能：清车头
 //输入：
@@ -2538,7 +1062,6 @@ uint8_t is_connect(road_range* new_white, road* pre_line, uint8_t continue_id)
     return jd_return;//没找到返回0   或返回一个相连的但不与选道联通的白条子编号
 }
 
-
 uint8_t is_connect_continue(road_range* new_white, road_range* pre_line)
 {
 
@@ -2583,12 +1106,6 @@ void search_white_range()
     bool found_road_start = 0;
     bool found_road_end = 0;
 
-    // 可调参数：在NEAR_LINE和FAR_LINE处预计的赛道宽度
-    // 用于判断road_start和road_end
-    uint8_t w_near_line = 80, w_far_line = 10;
-    // 根据两个参数计算相应的k
-    float k_width = ((w_near_line - w_far_line) * 1.0) / ((NEAR_LINE - FAR_LINE) * 1.0);
-
     for (i = istart; i >= iend; i--)
     {
         map = &IMG[i][LEFT_SIDE];//指针行走加快访问速度
@@ -2624,7 +1141,7 @@ void search_white_range()
             }
         }
         white_range[i].num = tnum;
-        int expected_w = k_width * i + w_far_line;
+        int expected_w = get_expected_road_width(i);
         if (!found_road_start && longest >= expected_w)
         {
             found_road_start = 1;
@@ -2744,16 +1261,31 @@ void find_road()
         }
     }
 }
-void find_road_state()
+
+static bool check_future(uint8_t i_start, uint8_t j_start)
 {
-    if (step == single_side)
+    uint8_t dright, dleft, uright, uleft;
+    if (i_start < 5) return true;
+    dleft = my_road[i_start].connected[j_start].left;
+    dright = my_road[i_start].connected[j_start].right;
+    for (uint8_t i = i_start - 1; i > i_start - 10; i--)
     {
-        single_side_road_choose();
+        bool found_connected = false;
+		for (uint8_t j = 1; j <= my_road[i].white_num; j++)
+		{
+			uleft = my_road[i].connected[j].left;
+			uright = my_road[i].connected[j].right;
+			if (dleft <= uright && dright >= uleft && uright - uleft > 0.3 * get_expected_road_width(i))
+			{
+                dleft = uleft;
+				dright = uright;
+                found_connected = true;
+				break;
+			}
+		}
+        if (!found_connected) return false;
     }
-    else
-    {
-        find_road();
-    }
+    return true;
 }
 
 
@@ -2782,6 +1314,8 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
             dright >= uleft
             )
         {
+            //if (i_start >= FAR_LINE + 30 && !check_future(i_start, j_start))
+            //    continue;
             //计算重叠大小
             if (dleft < uleft) left = uleft;
             else left = dleft;
@@ -2824,7 +1358,7 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
         if (left_dis < right_dis && left_dis < 15 && left_white->left > 20)
         {
             // 将左边的白条子和当前白条子连接为一个白条
-			my_road[current_line].connected[j_return].left = left_white->left;
+		    my_road[current_line].connected[j_return].left = left_white->left;
         }
         else if (right_dis < left_dis && right_dis < 15 && CAMERA_W - right_white->right > 20)
         {
@@ -2836,11 +1370,54 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
 }
 
 
+uint8_t my_continue[CAMERA_H];
+void find_continue_recursive(uint8_t now_i, uint8_t my_res[])
+{
+    uint8_t j;
+    uint8_t width_max = 0;
+    uint8_t width_new = 0;
+    uint8_t left = 0;
+    uint8_t right = 0;
+    uint8_t dright, dleft, uright, uleft;
+    bool found = 0;
+    for (j = 1; j <= my_road[now_i - 1].white_num; j++)
+    {
+        dleft = my_road[now_i].connected[my_res[now_i]].left;
+        dright = my_road[now_i].connected[my_res[now_i]].right;
+        uleft = my_road[now_i - 1].connected[j].left;
+        uright = my_road[now_i - 1].connected[j].right;
+        if (//相连
+            dleft <= uright
+            &&
+            dright >= uleft
+   //         && 
+			//uright - uleft > 0.3 * get_expected_road_width(now_i - 1)
+            )
+        {
+			my_res[now_i - 1] = j;
+            find_continue_recursive(now_i - 1, my_res);
+            found = 1;
+        }
+    }
+    if (!found)
+    {
+        if (now_i < min_i)
+        {
+            for (int i = road_start; i >= now_i; i--)
+            {
+                j_continue[i] = my_res[i];
+            }
+            min_i = now_i;
+        }
+        return;
+    }
+}
+
+
 void ordinary_two_line(void)
 {
     uint8_t i;
     uint8_t j;
-    uint8_t j_continue[CAMERA_H];//第一条连通路径
     uint8_t i_start;
     uint8_t i_end;
     uint8_t j_start = MISS;
@@ -2860,34 +1437,36 @@ void ordinary_two_line(void)
             j_start = j;
         }
     }
+	for (int i = 0; i < CAMERA_H; i++)
+	{
+		j_continue[i] = MISS;
+        my_continue[i] = MISS;
+	}
     j_continue[i_start] = j_start;
-
-    if (step == single_side)
+    
+    //记录连贯区域编号
+    for (i = i_start; i > i_end; i--)
     {
-        single_side_bridge_two_line(j_continue);
-    }
-    else
-    {
-        //记录连贯区域编号
-        for (i = i_start; i > i_end; i--)
+        //如果相连编号大于该行白条数，非正常，从此之后都MISS
+        if (j_continue[i] > my_road[i].white_num)
         {
-            //如果相连编号大于该行白条数，非正常，从此之后都MISS
-            if (j_continue[i] > my_road[i].white_num)
+            if (!road_end_updated)
             {
-                if (!road_end_updated)
-                {
-                    road_end = i;
-                    road_end_updated = 1;
-                }
-                j_continue[i - 1] = MISS;
+                road_end = i;
+                road_end_updated = 1;
             }
-            else
-            {
-                j_continue[i - 1] = find_continue(i, j_continue[i]);
-            }
-
+            j_continue[i - 1] = MISS;
         }
+        else
+        {
+            j_continue[i - 1] = find_continue(i, j_continue[i]);
+        }
+
     }
+
+ //   min_i = CAMERA_H;
+ //   my_continue[i_start] = j_start;
+	//find_continue_recursive(i_start, my_continue);
 
 
     //全部初始化为MISS
@@ -2899,7 +1478,7 @@ void ordinary_two_line(void)
     {
         if (j_continue[i] >= 1 && j_continue[i] <= my_road[i].white_num)
         {
-            top_road = i;
+            road_end = i;
             left_line[i] = my_road[i].connected[j_continue[i]].left;
             right_line[i] = my_road[i].connected[j_continue[i]].right;
 
@@ -2909,10 +1488,6 @@ void ordinary_two_line(void)
             left_line[i] = MISS;
             right_line[i] = MISS;
         }
-    }
-    if (step == 1)
-    {
-        renew_road();
     }
 }
 
@@ -2981,7 +1556,7 @@ void define_mid_255()
 {
     if (mid(NEAR_LINE) == 0)
     {
-        for (int i = NEAR_LINE; i > top_road + 5; i--)
+        for (int i = NEAR_LINE; i > road_end + 5; i--)
         {
             mid_line[i] = middle;
         }
@@ -2992,22 +1567,6 @@ void datas_init()
 {
     road_start = NEAR_LINE;
     road_end = FAR_LINE;
-
-    left_f2_y = 0;//左边线二阶导拐点
-    right_f2_y = 0;//右边线二阶导拐点
-    left_guai_H = 0;//左下边界拐点
-    right_guai_H = 0;//右下边界拐点
-    left_guai_H2 = 0;//左上边界拐点
-    right_guai_H2 = 0;//右上边界拐点
-    left_line_datas[0] = 0;
-    right_line_datas[0] = 0;
-    single_left_side_y = 0;
-    single_right_side_y = 0;
-}
-
-void element_check()//人机交互
-{
-    element_ok = 1;
 }
 
 
@@ -3058,7 +1617,7 @@ uint8_t find_least_square_start(uint8_t* line, uint8_t start, uint8_t end, uint8
 		if (change_y == 0) // 线条连续，没有跳变
         {
             // 检查赛道宽度是否合法
-			if (abs(left_line[i] - right_line[i]) < 20) continue;
+			if (right_line[i] - left_line[i] < get_expected_road_width(i)) continue;
             // 找到连续线段，判断k
             float input[3];
             least_square_with_R(line, i, limit, input);
@@ -3092,38 +1651,171 @@ void mend_stairs()
     }
 }
 
-// 远处的单边桥补线
-void mend_far_single_side()
+
+// 单边桥补线
+void mend_single_side()
 {
     float input[2];
-    if (NEAR_LINE - road_start >= 2 && road_start - road_end >= 10)
+    if (NEAR_LINE - road_start >= 20 && road_start - road_end >= 10)
     {
         uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 5, 0);
         uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1);
         if (lstart) least_square_get_line(left_line, lstart, 6, input, NEAR_LINE, lstart);
         if (rstart) least_square_get_line(right_line, rstart, 6, input, NEAR_LINE, rstart);
-        on_single_side_road_cnt = 0;
-        on_single_side_road = 0;
     }
-    else {
-        int white_count = 0;
-        for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
+    
+    if (NEAR_LINE - road_start >= 30) return;
+
+    int judge_lmr = 0;
+    for (int i = road_start; i >= road_start - 20; i--)
+    {
+        if (abs(right_line[i] - middle) < 10) judge_lmr = 1;
+        else if (abs(left_line[i] - middle) < 10) judge_lmr = -1;
+        else judge_lmr = 0;
+    }
+
+
+    uint8_t left_bp_down_H = road_start;
+    uint8_t right_bp_down_H = road_start;
+    uint8_t left_bp_up_H = road_start - 15;
+    uint8_t right_bp_up_H = road_start - 15;
+
+    if (judge_lmr == 0 || judge_lmr == 1)
+    {
+        while (left_bp_down_H = get_line_f2_forward_y(left_line, left_bp_down_H, road_end + 5, 7, 5))
         {
-            for (int j = 64; j <= 124; j++)
+            if (2 * left_line[left_bp_down_H] - left_line[left_bp_down_H - 5] - left_line[left_bp_down_H + 5] < -7 && 2 * left_line[left_bp_down_H] - left_line[left_bp_down_H - 5] - left_line[left_bp_down_H + 5] > -60 && left_line[left_bp_down_H] - left_line[left_bp_down_H - 5] < -7)
             {
-                if (IMG[i][j])
-                    white_count++;
+                if (left_bp_down_H > 50)
+                {
+                    if (left_line[left_bp_down_H] > LEFT_SIDE + 15)
+                        break;
+                    else
+                        left_bp_down_H = left_bp_down_H - 1;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                left_bp_down_H = left_bp_down_H - 1;
             }
         }
-        if (white_count >= 800)
+    }
+    if (judge_lmr == 0 || judge_lmr == -1)
+    {
+        while (right_bp_down_H = get_line_f2_forward_y(right_line, right_bp_down_H, road_end + 5, 7, 5))
         {
-            on_single_side_road_cnt++;
-            if (on_single_side_road_cnt > 10)
+            if (2 * right_line[right_bp_down_H] - right_line[right_bp_down_H - 5] - right_line[right_bp_down_H + 5] > 7 && 2 * right_line[right_bp_down_H] - right_line[right_bp_down_H - 5] - right_line[right_bp_down_H + 5] < 60 && right_line[right_bp_down_H] - right_line[right_bp_down_H - 5] > 7)
             {
-                on_single_side_road = 1;
+                if (right_bp_down_H > 50)
+                {
+                    if (right_line[right_bp_down_H] < RIGHT_SIDE - 15)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        right_bp_down_H = right_bp_down_H - 1;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                right_bp_down_H = right_bp_down_H - 1;
             }
         }
     }
+    if (judge_lmr == 1)
+    {
+        for (int i = right_bp_up_H; i >= right_bp_up_H - 20; i--)
+        {
+            if (right_line[i - 4] - right_line[i] > 10)
+            {
+                right_bp_up_H = i - 6;
+                break;
+            }
+        }
+    }
+    if (judge_lmr == -1)
+    {
+        for (int i = left_bp_up_H; i >= left_bp_up_H - 20; i--)
+        {
+            if (left_line[i] - left_line[i - 4] > 10)
+            {
+                left_bp_up_H = i - 6;
+                break;
+            }
+        }
+    }
+
+    if (judge_lmr == 0)
+    {
+        if (road_start - left_bp_down_H > 10) least_square_get_line(left_line, left_bp_down_H + 10, 10, input, left_bp_down_H, FAR_LINE);
+        if (road_start - right_bp_down_H > 10) least_square_get_line(right_line, right_bp_down_H + 10, 10, input, right_bp_down_H, FAR_LINE);
+        if (NEAR_LINE - right_bp_down_H >= 20 && NEAR_LINE - right_bp_down_H <= 50)
+        {
+            single_side_state = 1;
+        }
+        if (NEAR_LINE - left_bp_down_H >= 20 && NEAR_LINE - left_bp_down_H <= 50)
+        {
+            single_side_state = 1;
+        }
+    }
+    else if (judge_lmr == -1)
+    {
+        if (road_start - 10 - left_bp_up_H > 0) least_square_get_line(left_line, left_bp_up_H - 3, 7, input, NEAR_LINE, left_bp_up_H);
+        if (road_start - 10 - right_bp_down_H > 0) least_square_get_line(right_line, right_bp_down_H + 10, 10, input, right_bp_down_H, FAR_LINE);
+    }
+    else if (judge_lmr == 1)
+    {
+        if (road_start - 10 - left_bp_down_H > 0) least_square_get_line(left_line, left_bp_down_H + 10, 10, input, left_bp_down_H, FAR_LINE);
+        if (road_start - 10 - right_bp_up_H > 0) least_square_get_line(right_line, right_bp_up_H - 3, 7, input, NEAR_LINE, right_bp_up_H);
+
+    }
+    
+    if (abs(left_line[error_calc_near_line] - middle) < 10)
+    {
+        for (int i = error_calc_near_line; i >= road_end; i--)
+        {
+			if (left_line[error_calc_near_line] - left_line[i] > 10)
+			{
+				least_square_get_line(left_line, i - 3, 6, input, NEAR_LINE, i);
+				break;
+			}
+        }
+    }
+    if (abs(right_line[error_calc_near_line] - middle) < 10)
+    {
+        for (int i = error_calc_near_line; i >= road_end; i--)
+        {
+            if (right_line[i] - right_line[error_calc_far_line] > 10)
+            {
+                least_square_get_line(right_line, i - 3, 6, input, NEAR_LINE, i);
+                break;
+            }
+        }
+    }
+    if (single_side_state)
+    {
+        int count = 0;
+		for (int i = NEAR_LINE - 40; i >= NEAR_LINE - 70; i--)
+		{
+			for (int j = middle - 20; j <= middle + 20; j++)
+			{
+                if (IMG[i][j]) count++;
+			}
+		}
+        if(count < 300)
+			single_side_state = 0;
+    }
+    printf("lmr: %d\n", judge_lmr);
 }
 
 void front_stairs_end_check()
@@ -3227,7 +1919,7 @@ void mend_far_jolt()
         if (white_count >= 800)
         {
             on_jolt_cnt++;
-            if (on_single_side_road_cnt > 10)
+            if (on_jolt_cnt > 10)
             {
                 on_jolt = 1;
             }
@@ -3258,26 +1950,20 @@ int calc_error(int* missed)
     return sum / total - middle;
 }
 
-////////////////////////////////////////////
-//功能：图像处理主程序
-//输入：
-//输出：
-//备注：
-///////////////////////////////////////////
+
 void image_main()
 {
 #if ONBOARD
 #else 
     now_element = SINGLE_SIDE;
 #endif
-    // mid_update = 0;
     datas_init();
+    
     THRE();
     head_clear();
     search_white_range();
     find_all_connect();
-    find_road_state();
-    /*到此处为止，我们已经得到了属于赛道的结构体数组my_road[CAMERA_H]*/
+    find_road();
 
     ordinary_two_line();
 
@@ -3299,17 +1985,10 @@ void image_main()
         }
     }
 #endif 
-    element_check();
-    pre_step = step;
     switch (now_element)
     {
     case SINGLE_SIDE:
-        if (!on_single_side_road)
-            mend_far_single_side();
-        else
-        {
-            general_judgement();
-        }
+        mend_single_side();
         break;
 
     case FRONT_STAIRS:
@@ -3351,12 +2030,13 @@ void image_main()
         }
         break;
     case SINGLE_SIDE:
-        if (on_single_side_road)
+        if (single_side_state)
         {
-            if (error > 10 || error < -10) error = 0;
-            if (error < -5) error = -5;
-            if (error > 5) error = 5;
+            if (error > 15 || error < -15) error = 0;
+            if (error < -10) error = -10;
+            if (error > 10) error = 10;
         }
+        break;
     }
     if (error < -50) error = 0;
     if (error > 50) error = 0;
@@ -3367,7 +2047,7 @@ void image_main()
 #if ONBOARD
 #else
     //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
-    printf("on_single_side_road: %d", on_single_side_road);
+    //printf("single_side_state: %d\n", single_side_state);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;
