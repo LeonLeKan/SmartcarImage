@@ -25,7 +25,10 @@ typedef struct {
     range   area[white_num_MAX];//该行各白条区域
 }all_range;
 
-
+typedef struct {
+    int thre, tolerance;
+    int end_cnt, not_end_cnt;
+}end_judge_t;
 
 //////////////////////// 传给控制 ////////////////////
 // 1-单边桥 2-三级跳 3-下三级 4-颠簸路段
@@ -33,16 +36,9 @@ element_t now_element;
 int stair_distance;     // 到下一级台阶的距离
 bool front_stairs_end_flag = 0;
 bool back_stairs_end_flag = 0;
-bool jolt_end_flag = 0;
 int error = 0;
 int error_calc_near_line = 52;
 int error_calc_far_line = 50;
-
-int on_jolt_cnt = 0;
-bool on_jolt = 0;
-int jolt_distance = 0;
-
-int jolt_end_cnt_thre = 30;
 
 uint8_t single_side_state;
 
@@ -95,12 +91,12 @@ uint8_t old_left_line[CAMERA_H], old_right_line[CAMERA_H];
 uint8_t mid_line[CAMERA_H];
 int all_connect_num = 0;
 uint8_t enable_dis_shadow = 1;     //是否启用去除影子策略
-///////////////////////// /赛道/ ///////////////////////
 
-float single_dis = 0;
+//////////////////////// 颠簸路段 //////////////////////
+int jolt_end_cnt_thre = 20;
+bool jolt_end_flag = 0;
+end_judge_t jolt_end_judge = { 20, 3, 0, 0 };
 
-// 颠簸路段
-int jolt_end_judge_cnt = 0;
 int back_stairs_end_judge_cnt = 0;
 
 
@@ -1368,6 +1364,8 @@ void datas_init()
 {
     road_start = NEAR_LINE;
     road_end = FAR_LINE;
+
+    jolt_end_judge.thre = jolt_end_cnt_thre;
 }
 
 
@@ -1616,17 +1614,46 @@ void mend_single_side()
     printf("lmr: %d\n", judge_lmr);
 }
 
+static int calc_white(uint8_t near, uint8_t far, uint8_t left, uint8_t right)
+{
+	int white_count = 0;
+	for (int i = near; i >= far; i--)
+	{
+		for (int j = left; j <= right; j++)
+		{
+			if (IMG[i][j])
+				white_count++;
+		}
+	}
+	return white_count;
+}
+
+static bool element_end_judge(end_judge_t* judge, bool now)
+{
+    if (now)
+    {
+		judge->end_cnt++;
+		if (judge->end_cnt > judge->thre)
+		{
+			judge->not_end_cnt = 0;
+			return true;
+		}
+	}
+    else
+    {
+		judge->not_end_cnt++;
+		if (judge->not_end_cnt > judge->thre)
+		{
+			judge->end_cnt = 0;
+			judge->not_end_cnt = 0;
+		}
+    }
+	return false;
+}
+
 void front_stairs_end_check()
 {
-    int white_count = 0;
-    for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
-    {
-        for (int j = 64; j <= 124; j++)
-        {
-            if (IMG[i][j])
-                white_count++;
-        }
-    }
+    int white_count = calc_white(NEAR_LINE, NEAR_LINE - 20, 64, 124);
     if (white_count < 400)
     {
         front_stairs_end_flag = 1;
@@ -1638,15 +1665,7 @@ void front_stairs_end_check()
 
 void back_stairs_end_check()
 {
-    int white_count = 0;
-    for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
-    {
-        for (int j = 64; j <= 124; j++)
-        {
-            if (IMG[i][j])
-                white_count++;
-        }
-    }
+	int white_count = calc_white(NEAR_LINE, NEAR_LINE - 20, 64, 124);
     if (follow_lock == 3 && white_count < 400)
     {
         back_stairs_end_judge_cnt++;
@@ -1666,68 +1685,10 @@ void back_stairs_end_check()
 
 void jolt_end_check()
 {
-    int white_count = 0;
-    for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
-    {
-        for (int j = 64; j <= 124; j++)
-        {
-            if (IMG[i][j])
-                white_count++;
-        }
-    }
-    if (white_count < 400)
-    {
-        jolt_end_judge_cnt++;
-        if (jolt_end_judge_cnt > jolt_end_cnt_thre)
-        {
-            // 达到阈值，退出JOLT状态
-            jolt_end_judge_cnt = 0;
-            jolt_end_flag = 1;
-        }
-    }
-    else {
-        jolt_end_flag = 0;
-        jolt_end_judge_cnt = 0;
-    }
+	int white_count = calc_white(NEAR_LINE, NEAR_LINE - 20, 64, 124);
+	jolt_end_flag = element_end_judge(&jolt_end_judge, white_count < 400);
 }
 
-void mend_far_jolt()
-{
-    float input[2];
-    if (NEAR_LINE - road_start >= 2 && road_start - road_end >= 10)
-    {
-        uint8_t lstart= find_least_square_start(left_line, road_start, road_end, 5, 0);
-        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1);
-        if(lstart) least_square_get_line(left_line, lstart, 6, input, NEAR_LINE, lstart);
-        if(rstart) least_square_get_line(right_line, rstart, 6, input, NEAR_LINE, rstart);
-        on_jolt_cnt = 0;
-        on_jolt = 0;
-        jolt_distance = NEAR_LINE - road_start;
-    }
-    else {
-        int white_count = 0;
-        for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
-        {
-            for (int j = 64; j <= 124; j++)
-            {
-                if (IMG[i][j])
-                    white_count++;
-            }
-        }
-        if (white_count >= 800)
-        {
-            on_jolt_cnt++;
-            if (on_jolt_cnt > 10)
-            {
-                on_jolt = 1;
-            }
-        }
-        else {
-			// 面前一片黑，还没有看见颠簸路段，认为颠簸路段距离为120
-            jolt_distance = 120;
-        }
-    }
-}
 
 int calc_error(int* missed)
 {
@@ -1753,7 +1714,7 @@ void image_main()
 {
 #if ONBOARD
 #else 
-    now_element = SINGLE_SIDE;
+    now_element = JOLT;
 #endif
     datas_init();
     
@@ -1802,8 +1763,7 @@ void image_main()
         back_stairs_end_check();
         break;
     case JOLT:
-        if(!on_jolt) mend_far_jolt();
-        else jolt_end_check();
+        jolt_end_check();
         break;
     }
 
@@ -1846,6 +1806,7 @@ void image_main()
 #else
     //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
     //printf("single_side_state: %d\n", single_side_state);
+	printf("jolt_end: %d\n", jolt_end_flag);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;

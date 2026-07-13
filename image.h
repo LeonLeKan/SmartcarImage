@@ -78,14 +78,16 @@ extern element_t now_element;
 extern int stair_distance;     // 到下一级台阶的距离
 extern bool front_stairs_end_flag;
 extern bool back_stairs_end_flag;
-extern bool jolt_end_flag;
+
 extern int error;
 extern int error_calc_near_line;
 extern int error_calc_far_line;
-extern uint8_t mid_update;
-extern int jolt_end_judge_cnt;
-extern int jolt_end_cnt_thre;
 extern uint8_t middle;
+extern uint8_t mid_update;
+
+extern int jolt_end_cnt_thre;
+extern bool jolt_end_flag;
+
 
 extern uint8_t single_side_state;
 
