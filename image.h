@@ -125,12 +125,7 @@ void ordinary_two_line(void);
 void my_memset(uint8_t* ptr, uint8_t num, uint8_t size);
 void get_mid_line(void);
 void image_main(void);
-//==================================================其他函数======================================================
-uint8_t mid(uint8_t i);
 void datas_init(void);
-road_range search_white_range_begin(uint8_t line, uint8_t col);
-uint8_t is_connect_continue(road_range* new_white, road_range* pre_line);
-uint8_t is_connect(road_range* new_white, road* pre_line, uint8_t continue_id);
 
 //====================================================一些找点的函数====================================================
 
@@ -144,9 +139,6 @@ uint8_t get_white_width_small(uint8_t start, uint8_t end, uint8_t change_limit);
 uint8_t get_white_width_larger(uint8_t start, uint8_t end, uint8_t change_limit);
 uint8_t get_line_side(uint8_t* line, uint8_t start, uint8_t end, uint8_t limit);
 uint8_t judge_white_width_charge(uint8_t y1, uint8_t y2, uint8_t charge);
-uint8_t get_white_num_more_y(uint8_t start, uint8_t end);
-uint8_t get_white_num_less_y(uint8_t start, uint8_t end, uint8_t white_num);
-uint8_t get_white_num_most_y(uint8_t start, uint8_t end);
 uint8_t get_straight_line(uint8_t* line, uint8_t start, uint8_t end, uint8_t change);
 int8_t get_line_monotony(uint8_t* line, uint8_t start, uint8_t end, uint8_t change);
 
@@ -159,5 +151,4 @@ void least_square_get_line(uint8_t* line, uint8_t outset, uint8_t limit, float i
 void get_line_b(uint8_t* line, uint8_t x, float input[]);
 void get_line_b_and_k(uint8_t* line, uint8_t start, uint8_t end, float input[]);
 void get_line(uint8_t* line, uint8_t start, uint8_t end, float k, float b);
-void define_mid_255(void);
 #endif //

@@ -209,59 +209,6 @@ static uint8_t min(uint8_t a, uint8_t b) {
     return (a < b) ? a : b;
 }
 
-
-//计算白条子变多的函数
-uint8_t get_white_num_more_y(uint8_t start, uint8_t end)
-{
-    uint8_t zebra_start = 0;
-    for (int i = start; i > end; i--)
-    {
-        if (my_road[i].white_num > 1 && my_road[i - 1].white_num > 1 && my_road[i - 2].white_num > 1 && my_road[i - 3].white_num > 1)
-        {
-            zebra_start = (uint8_t)i;
-            break;
-        }
-    }
-    return zebra_start;
-}
-//计算白条子变少的函数
-uint8_t get_white_num_less_y(uint8_t start, uint8_t end, uint8_t white_num)
-{
-    uint8_t zebra_end = 0;
-    if (start == 0)
-    {
-        start = NEAR_LINE;
-    }
-    for (int i = start; i > end; i--)
-    {
-        if (my_road[i].white_num <= 1)
-        {
-            zebra_end = (uint8_t)i;
-            break;
-        }
-        if (my_road[i].white_num == 2 && (my_road[i].connected[2].left - my_road[i].connected[1].right) > 20)
-        {
-            zebra_end = (uint8_t)i;
-            break;
-        }
-    }
-    return zebra_end;
-}
-//计算白条子最多的y坐标
-uint8_t get_white_num_most_y(uint8_t start, uint8_t end)
-{
-    uint8_t white_max_y = 0;
-    uint8_t white_num_1 = 0;
-    for (int i = start; i > end; i--)
-    {
-        if (my_road[i].white_num > white_num_1)
-        {
-            white_max_y = (uint8_t)i;
-            white_num_1 = my_road[i].white_num;
-        }
-    }
-    return white_max_y;
-}
 ////////////////////////////////////////////
 //功能：计算边线突变点
 //输入：line 边界线,start 开始点,end 结束点,change_limit 改变限制
@@ -956,125 +903,7 @@ void head_clear(void)//分为两部分进行清理，车头处有线挡着
     }
 
 }
-road_range search_white_range_begin(uint8_t line, uint8_t col)//用来找到line行，从col列开始往右的白条子，找到就返回这个白条子的属性road_range
-{
-    int16_t j;
-    uint8_t* map = &IMG[line][col];
-    uint8_t* Initial = &IMG[0][0];
-    road_range result = { MISS, MISS, MISS };
-    for (j = col; j <= RIGHT_SIDE; j++, map++)
-    {
-        if (j == LEFT_SIDE && (*map))//白条位于左边界
-        {
-            result.left = LEFT_SIDE;
-            //printf("left0=%d\n", result.left);
-            //开始向后一个一个像素点找这个白条右边界
-            map++;
-            j++;
-            while ((*map) && j <= RIGHT_SIDE)
-            {
-                map++;
-                j++;
-            }
-            result.right = j - 1;
-            //printf("right0=%d\n", result.right);
-            result.width = result.right - result.left + 1;
-            return result;//找到就返回这个白条子的属性road_range
-        }
-        else if ((*map) && j == col)//如果开始处为白，先找到白条的左边界
-        {
-            //开始向前一个一个像素点找这个白条左边界
-            map--;
-            j--;
-            while ((*map) && j >= LEFT_SIDE)
-            {
-                if (map != Initial) map--;
-                j--;
-            }
-            result.left = j + 1;//找到了白条的左边界
-            //printf("left1=%d\n", result.left);
-            map = &IMG[line][col];
-            j = col;
-            //开始向后一个一个像素点找这个白条右边界
-            map++;
-            j++;
-            while ((*map) && j <= RIGHT_SIDE)
-            {
-                map++;
-                j++;
-            }
-            result.right = j - 1;
-            result.width = result.right - result.left + 1;
-            //printf("right1=%d\n", result.right);
-            return result;//找到就返回这个白条子的属性road_range
 
-        }
-        else if ((*map))//如果开始处为黑，直接找白条的右边界
-        {
-            result.left = (uint8_t)j;
-            if (line == 57)
-            {
-                // printf("left2=%d\n", result.left);
-                // printf("col=%d\n", col);
-            }
-
-            //开始向前一个一个像素点找这个白条右边界
-            map++;
-            j++;
-            while ((*map) && j <= RIGHT_SIDE)
-            {
-                map++;
-                j++;
-            }
-            result.right = j - 1;
-            // printf("right2=%d\n", result.right);
-            result.width = result.right - result.left + 1;
-            return result;//找到就返回这个白条子的属性road_range
-        }
-
-    }
-    return result;//没找到就返回result = { MISS, MISS, MISS };
-}
-
-////////////////////////////////////////////
-//功能：查找联通性
-//输入：当前行的白条子属性road_range* new_white，上一行的赛道属性road* pre_line，上一行的选道的白条子编号uint8_t continue_id
-//输出：编号
-//备注：
-///////////////////////////////////////////
-uint8_t is_connect(road_range* new_white, road* pre_line, uint8_t continue_id)
-{
-    uint8_t j_d;
-    uint8_t jd_return = 0;
-    uint8_t u_left = new_white->left;//当前行
-    uint8_t u_right = new_white->right;
-    for (j_d = 1; j_d <= pre_line->white_num; j_d++)//寻找上一行与当前行的白条子是否联通
-    {
-        road_range* pre_road = &pre_line->connected[j_d];
-        if (u_left <= pre_road->right && u_right >= pre_road->left)//如果相连0
-        {
-            if (!jd_return)
-                jd_return = j_d;//j_d到本次函数跑完  等于上一行的白条子数目或者是上一行选道的白条子编号
-            if (j_d == continue_id)
-                return continue_id;//只有相连并且与上一行的选道的白条子相连通才是希望的白条子
-        }
-    }
-    return jd_return;//没找到返回0   或返回一个相连的但不与选道联通的白条子编号
-}
-
-uint8_t is_connect_continue(road_range* new_white, road_range* pre_line)
-{
-
-    uint8_t u_left = new_white->left;//当前行
-    uint8_t u_right = new_white->right;
-    road_range* pre_road = pre_line;
-    if (u_left <= pre_road->right && u_right >= pre_road->left)//如果相连0
-    {
-        return 1;//只有相连并且与上一行的选道的白条子相连通才是希望的白条子
-    }
-
-    return 0;//没找到返回0
-}
 ////////////////////////////////////////////
 //功能：查找父节点
 //输入：节点编号//
@@ -1533,35 +1362,7 @@ void get_mid_line(void)
     }
 
 }
-uint8_t mid(uint8_t i)
-{
-    if (mid_line[i] >= 187 || mid_line[i] <= 1)
-    {
-        if (i > 25)
-        {
-            return mid(i - 1);
-        }
-        if (i <= 25)
-        {
-            return 0;
-        }
-    }
-    else
-    {
-        return 1;
-    }
-}
 
-void define_mid_255()
-{
-    if (mid(NEAR_LINE) == 0)
-    {
-        for (int i = NEAR_LINE; i > road_end + 5; i--)
-        {
-            mid_line[i] = middle;
-        }
-    }
-}
 //数值初始化
 void datas_init()
 {
@@ -1584,9 +1385,6 @@ void calc_stair_distance()
         stair_distance = 120;
     }
 }
-
-
-
 
 bool judge_least_square(float input[], bool l_or_r)
 {
