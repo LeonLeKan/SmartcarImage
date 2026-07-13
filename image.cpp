@@ -38,6 +38,7 @@ int error = 0;
 int error_calc_near_line = 52;
 int error_calc_far_line = 50;
 
+// 颠簸路段前补线，已弃用
 int on_jolt_cnt = 0;
 bool on_jolt = 0;
 int jolt_distance = 0;
@@ -1639,7 +1640,7 @@ void front_stairs_end_check()
 void back_stairs_end_check()
 {
     int white_count = 0;
-    for (int i = NEAR_LINE; i >= NEAR_LINE - 20; i--)
+    for (int i = NEAR_LINE - 10; i >= NEAR_LINE - 30; i--)
     {
         for (int j = 64; j <= 124; j++)
         {
@@ -1647,7 +1648,7 @@ void back_stairs_end_check()
                 white_count++;
         }
     }
-    if (follow_lock == 3 && white_count < 400)
+    if (white_count < 400)
     {
         back_stairs_end_judge_cnt++;
         if (back_stairs_end_judge_cnt > back_stairs_end_cnt_thre)
@@ -1753,7 +1754,7 @@ void image_main()
 {
 #if ONBOARD
 #else 
-    now_element = SINGLE_SIDE;
+    now_element = JOLT;
 #endif
     datas_init();
     
@@ -1802,8 +1803,9 @@ void image_main()
         back_stairs_end_check();
         break;
     case JOLT:
-        if(!on_jolt) mend_far_jolt();
-        else jolt_end_check();
+        //if(!on_jolt) mend_far_jolt();
+        //else 
+        jolt_end_check();
         break;
     }
 
@@ -1846,6 +1848,7 @@ void image_main()
 #else
     //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
     //printf("single_side_state: %d\n", single_side_state);
+	printf("jolt_end: %d\n", jolt_end_flag);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;
