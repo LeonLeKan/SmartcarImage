@@ -85,9 +85,9 @@ extern int error_calc_far_line;
 extern uint8_t middle;
 extern uint8_t mid_update;
 
-extern int jolt_end_cnt_thre;
 extern bool jolt_end_flag;
-
+extern int jolt_end_judge_cnt;
+extern int jolt_end_cnt_thre;
 
 extern uint8_t single_side_state;
 
@@ -128,7 +128,6 @@ void my_memset(uint8_t* ptr, uint8_t num, uint8_t size);
 void get_mid_line(void);
 void image_main(void);
 void datas_init(void);
-
 //====================================================一些找点的函数====================================================
 
 uint8_t get_left_line_x_max_y(uint8_t* line, uint8_t start, uint8_t end);
