@@ -35,7 +35,6 @@ typedef struct {
 // 1-µ¥±ßÇÅ 2-Èı¼¶Ìø 3-ÏÂÈı¼¶ 4-µßô¤Â·¶Î
 element_t now_element;
 int stair_distance;     // µ½ÏÂÒ»¼¶Ì¨½×µÄ¾àÀë
-bool front_stairs_end_flag = 0;
 bool back_stairs_end_flag = 0;
 int error = 0;
 int error_calc_near_line = 52;
@@ -50,7 +49,7 @@ uint8_t middle = 84;    // ÖĞÏßĞ£×¼£¨ÓĞĞ©ÉãÏñÍ·»áÕûÌåÏò×óÓÒÆ«£¬ËùÒÔÕæÕıµÄÕıÖĞ¼ä²
 
 //////////////////////// ¶şÖµ»¯ ////////////////////////
 // È¥ÒõÓ°Ç¿¶È
-float k_gray_dis = 0.6f;
+float k_gray_dis = 0.0f;
 
 // ¼ÆËã±³¾°»Ò¶ÈÇøÓò±ß½ç
 uint8_t THRE_HIS_LEFT = 0, THRE_HIS_RIGHT = CAMERA_W;
@@ -97,6 +96,9 @@ uint8_t enable_dis_shadow = 1;     //ÊÇ·ñÆôÓÃÈ¥³ıÓ°×Ó²ßÂÔ
 int jolt_end_cnt_thre = 20;
 bool jolt_end_flag = 0;
 end_judge_t jolt_end_judge = { 20, 3, 0, 0 };
+int front_stairs_end_cnt_thre = 40;
+bool front_stairs_end_flag = 0;
+end_judge_t front_stairs_end_judge = { 40, 3, 0, 0 };
 
 int back_stairs_end_judge_cnt = 0;
 
@@ -959,7 +961,7 @@ void search_white_range()
             }
         }
         white_range[i].num = tnum;
-        int expected_w = get_expected_road_width(i, 80, 10);
+        int expected_w =  0.8 * get_expected_road_width(i, 100, 30);
         if (!found_road_start && longest >= expected_w)
         {
             found_road_start = 1;
@@ -972,7 +974,6 @@ void search_white_range()
         }
     }
 }
-
 ////////////////////////////////////////////
 //¹¦ÄÜ£ºÑ°ÕÒ°×Ìõ×ÓÁ¬Í¨ĞÔ£¬½«È«²¿ÁªÍ¨°×Ìõ×ÓµÄ½Úµã±àºÅË¢³É×î¹ÅÀÏ×æÏÈµÄ½Úµã±àºÅ
 //ÊäÈë£º
@@ -1080,20 +1081,20 @@ void find_road()
     }
 }
 
-static bool check_future(uint8_t i_start, uint8_t j_start)
+static bool check_future(uint8_t i_start, uint8_t j_start, uint8_t N)
 {
     uint8_t dright, dleft, uright, uleft;
     if (i_start < 5) return true;
     dleft = my_road[i_start].connected[j_start].left;
     dright = my_road[i_start].connected[j_start].right;
-    for (uint8_t i = i_start - 1; i > i_start - 10; i--)
+    for (uint8_t i = i_start - 1; i > i_start - N; i--)
     {
         bool found_connected = false;
         for (uint8_t j = 1; j <= my_road[i].white_num; j++)
         {
             uleft = my_road[i].connected[j].left;
             uright = my_road[i].connected[j].right;
-            if (dleft <= uright && dright >= uleft && uright - uleft > 0.3 * get_expected_road_width(i, 80, 10))
+            if (dleft <= uright && dright >= uleft && uright - uleft > 0.4 * get_expected_road_width(i, 100, 30))
             {
                 dleft = uleft;
                 dright = uright;
@@ -1132,7 +1133,7 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
             dright >= uleft
             )
         {
-            //if (i_start >= FAR_LINE + 30 && !check_future(i_start, j_start))
+            //if (i_start >= FAR_LINE + 30 && !check_future(i_start, j_start, 8))
             //    continue;
             //¼ÆËãÖØµş´óĞ¡
             if (dleft < uleft) left = uleft;
@@ -1173,12 +1174,27 @@ uint8_t find_continue(uint8_t i_start, uint8_t j_start)
         {
             right_dis = right_white->left - current_white->right;
         }
-        if (left_dis < right_dis && left_dis < 15 && left_white->left > 20)
+		float max_width = 0;
+        switch (now_element)
+        {
+        case FRONT_STAIRS:
+        case BACK_STAIRS:
+            max_width = 1.2 * get_expected_road_width(i_start, 140, 20);
+            break;
+        case SINGLE_SIDE:
+            max_width = 1.2 * get_expected_road_width(i_start, 100, 30);
+            break;
+        default:
+            break;
+        }
+        if (left_dis < right_dis && left_dis < 15 && left_white->left > middle - max_width / 2
+            && current_white->right - left_white->left < max_width)
         {
             // ½«×ó±ßµÄ°×Ìõ×ÓºÍµ±Ç°°×Ìõ×ÓÁ¬½ÓÎªÒ»¸ö°×Ìõ
             my_road[current_line].connected[j_return].left = left_white->left;
         }
-        else if (right_dis < left_dis && right_dis < 15 && CAMERA_W - right_white->right > 20)
+        else if (right_dis < left_dis && right_dis < 15 && right_white->right < middle + max_width / 2
+            && right_white->right - current_white->left < max_width)
         {
             my_road[current_line].connected[j_return].right = right_white->right;
         }
@@ -1339,17 +1355,55 @@ void get_mid_line(void)
 
     for (int i = NEAR_LINE; i >= FAR_LINE; i--)
     {
-        if (left_line[i] != MISS)//Ö±µÀ
+        if (left_line[i] == MISS || right_line[i] == MISS
+            || right_line[i] - left_line[i] < 0.5 * get_expected_road_width(i, 100, 30))//Ö±µÀ
         {
-            mid_line[i] = (left_line[i] + right_line[i]) / 2;
+            mid_line[i] = MISS;
         }
 
         else
         {
-            mid_line[i] = MISS;
+            mid_line[i] = (left_line[i] + right_line[i]) / 2;
         }
     }
 
+}
+
+static int calc_white(uint8_t near, uint8_t far, uint8_t left, uint8_t right)
+{
+    int white_count = 0;
+    for (int i = near; i >= far; i--)
+    {
+        for (int j = left; j <= right; j++)
+        {
+            if (IMG[i][j])
+                white_count++;
+        }
+    }
+    return white_count;
+}
+
+static bool element_end_judge(end_judge_t* judge, bool now)
+{
+    if (now)
+    {
+        judge->end_cnt++;
+        if (judge->end_cnt > judge->thre)
+        {
+            judge->not_end_cnt = 0;
+            return true;
+        }
+    }
+    else
+    {
+        judge->not_end_cnt++;
+        if (judge->not_end_cnt > judge->thre)
+        {
+            judge->end_cnt = 0;
+            judge->not_end_cnt = 0;
+        }
+    }
+    return false;
 }
 
 //ÊıÖµ³õÊ¼»¯
@@ -1359,8 +1413,103 @@ void datas_init()
     road_end = FAR_LINE;
 
     jolt_end_judge.thre = jolt_end_cnt_thre;
+    front_stairs_end_judge.thre = front_stairs_end_cnt_thre;
 }
 
+bool judge_least_square(float input[], bool l_or_r, float min_R, float k1, float k2)
+{
+    float k = input[0], R = input[2];
+    if (fabs(R) < min_R) return false;
+    if (!l_or_r)
+    {
+        // ×ó±ßÏß
+        if (k > k1 || k < -k2) return false;
+        else return true;
+    }
+    else
+    {
+        // ÓÒ±ßÏß
+        if (k < -k1 || k > k2) return false;
+        else return true;
+    }
+}
+
+
+// Í¨¹ı×îĞ¡¶ş³Ë·¨ÄâºÏ£¬Ñ°ÕÒ×îÊÊºÏ²¹ÏßµÄÆğÊ¼µã
+// start - Ñ°ÕÒÆğÊ¼ĞĞ end - Ñ°ÕÒÖÕÖ¹ĞĞ limit - ×îĞ¡ÄâºÏµãÊı l_or_r - 0×ó1ÓÒ reverse - ÊÇ·ñ·´ÏòËÑË÷
+uint8_t find_least_square_start(uint8_t* line, uint8_t start, uint8_t end, uint8_t limit, bool l_or_r, bool reverse, float min_R, float k1, float k2)
+{
+    for (int i = reverse ? end + limit : start; reverse ? (i <= start) : (i >= end + limit); reverse ? i++ : i--)
+    {
+        uint8_t change_y = get_line_change(line, i, i - limit, 6);
+        if (change_y == 0) // ÏßÌõÁ¬Ğø£¬Ã»ÓĞÌø±ä
+        {
+            // ¼ì²éÈüµÀ¿í¶ÈÊÇ·ñºÏ·¨
+            if (right_line[i] - left_line[i] < 0.8 * get_expected_road_width(i, 100, 30)) continue;
+            // ÕÒµ½Á¬ĞøÏß¶Î£¬ÅĞ¶Ïk
+            float input[3];
+            least_square_with_R(line, i, limit, input);
+            if (judge_least_square(input, l_or_r, min_R, k1, k2))
+            {
+                return i;
+            }
+        }
+    }
+    return 0;
+}
+
+
+// Èı¼¶Ì¨½×²¹Ïß
+void mend_stairs()
+{
+    float input[2];
+    if (NEAR_LINE - road_start >= 20)
+    {
+        uint8_t lstart, rstart;
+        if (NEAR_LINE - road_start >= 50)
+        {
+            lstart = find_least_square_start(left_line, road_start, road_end, 8, 0, false, 0.85, 0.8, 1.2);
+            rstart = find_least_square_start(right_line, road_start, road_end, 8, 1, false, 0.85, 0.8, 1.2);
+        }
+        else
+        {
+            lstart = find_least_square_start(left_line, road_start, road_end, 8, 0, false, 0.85, 0.2, 1);
+            rstart = find_least_square_start(right_line, road_start, road_end, 8, 1, false, 0.85, 0.2, 1);
+        }
+        if (lstart && rstart)
+        {
+            least_square_get_line(left_line, lstart - 2, 6, input, NEAR_LINE, lstart);
+            least_square_get_line(right_line, rstart - 2, 6, input, NEAR_LINE, rstart);
+        }
+        else
+        {
+            for (int i = NEAR_LINE; i >= road_start; i--)
+            {
+                left_line[i] = MISS;
+                right_line[i] = MISS;
+            }
+        }
+
+    }
+    if (road_end - FAR_LINE >= 20)
+    {
+        uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 10, 0, true, 0.85, 0.2, 1);
+        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 10, 1, true, 0.85, 0.2, 1);
+        if (lstart && rstart)
+        {
+            least_square_get_line(left_line, lstart, 6, input, lstart, FAR_LINE);
+            least_square_get_line(right_line, rstart, 6, input, rstart, FAR_LINE);
+        }
+        else
+        {
+            for (int i = FAR_LINE; i <= road_end; i++)
+            {
+                left_line[i] = MISS;
+                right_line[i] = MISS;
+            }
+        }
+    }
+}
 
 void calc_stair_distance()
 {
@@ -1377,91 +1526,6 @@ void calc_stair_distance()
     }
 }
 
-bool judge_least_square(float input[], bool l_or_r)
-{
-    float k = input[0], R = input[2];
-    if (fabs(R) < 0.85) return false;
-    if (!l_or_r)
-    {
-        // ×ó±ßÏß
-        if (k > 1 || k < -1.3) return false;
-        else return true;
-    }
-    else
-    {
-        // ÓÒ±ßÏß
-        if (k < -1 || k > 1.3) return false;
-        else return true;
-    }
-}
-
-
-// Í¨¹ı×îĞ¡¶ş³Ë·¨ÄâºÏ£¬Ñ°ÕÒ×îÊÊºÏ²¹ÏßµÄÆğÊ¼µã
-// start - Ñ°ÕÒÆğÊ¼ĞĞ end - Ñ°ÕÒÖÕÖ¹ĞĞ limit - ×îĞ¡ÄâºÏµãÊı l_or_r - 0×ó1ÓÒ reverse - ÊÇ·ñ·´ÏòËÑË÷
-uint8_t find_least_square_start(uint8_t* line, uint8_t start, uint8_t end, uint8_t limit, bool l_or_r, bool reverse)
-{
-    for (int i = reverse ? end + limit : start; reverse ? (i <= start) : (i >= end + limit); reverse ? i++ : i--)
-    {
-        uint8_t change_y = get_line_change(line, i, i - limit, 6);
-        if (change_y == 0) // ÏßÌõÁ¬Ğø£¬Ã»ÓĞÌø±ä
-        {
-            // ¼ì²éÈüµÀ¿í¶ÈÊÇ·ñºÏ·¨
-            if (right_line[i] - left_line[i] <  0.8 * get_expected_road_width(i, 80, 10)) continue;
-            // ÕÒµ½Á¬ĞøÏß¶Î£¬ÅĞ¶Ïk
-            float input[3];
-            least_square_with_R(line, i, limit, input);
-            if (judge_least_square(input, l_or_r))
-            {
-                return i;
-            }
-        }
-    }
-    return 0;
-}
-
-
-// Èı¼¶Ì¨½×²¹Ïß
-void mend_stairs()
-{
-    float input[2];
-    if (NEAR_LINE - road_start >= 20)
-    {
-        uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 10, 0, false);
-        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 10, 1, false);
-        if (lstart && rstart)
-        {
-            least_square_get_line(left_line, lstart - 2, 8, input, NEAR_LINE, lstart);
-            least_square_get_line(right_line, rstart - 2, 8, input, NEAR_LINE, rstart);
-        }
-        else
-        {
-            for (int i = NEAR_LINE; i >= road_start; i--)
-            {
-                left_line[i] = MISS;
-                right_line[i] = MISS;
-            }
-        }
-
-    }
-    if (road_end - FAR_LINE >= 20)
-    {
-        uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 10, 0, true);
-        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 10, 1, true);
-        if (lstart && rstart)
-        {
-            least_square_get_line(left_line, lstart, 6, input, lstart, FAR_LINE);
-            least_square_get_line(right_line, rstart, 6, input, rstart, FAR_LINE);
-        }
-        else 
-        {
-			for (int i = FAR_LINE; i <= road_end; i++)
-			{
-				left_line[i] = MISS;
-				right_line[i] = MISS;
-			}
-        }
-    }
-}
 
 
 // µ¥±ßÇÅ²¹Ïß
@@ -1470,8 +1534,8 @@ void mend_single_side()
     float input[2];
     if (NEAR_LINE - road_start >= 20 && road_start - road_end >= 10)
     {
-        uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 5, 0, false);
-        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1, false);
+        uint8_t lstart = find_least_square_start(left_line, road_start, road_end, 5, 0, false, 0.85, 0.8, 1.3);
+        uint8_t rstart = find_least_square_start(right_line, road_start, road_end, 5, 1, false, 0.85, 0.8, 1.3);
         if (lstart) least_square_get_line(left_line, lstart, 6, input, NEAR_LINE, lstart);
         if (rstart) least_square_get_line(right_line, rstart, 6, input, NEAR_LINE, rstart);
     }
@@ -1651,53 +1715,10 @@ void mend_single_side()
 #endif
 }
 
-static int calc_white(uint8_t near, uint8_t far, uint8_t left, uint8_t right)
-{
-    int white_count = 0;
-    for (int i = near; i >= far; i--)
-    {
-        for (int j = left; j <= right; j++)
-        {
-            if (IMG[i][j])
-                white_count++;
-        }
-    }
-    return white_count;
-}
-
-static bool element_end_judge(end_judge_t* judge, bool now)
-{
-    if (now)
-    {
-        judge->end_cnt++;
-        if (judge->end_cnt > judge->thre)
-        {
-            judge->not_end_cnt = 0;
-            return true;
-        }
-    }
-    else
-    {
-        judge->not_end_cnt++;
-        if (judge->not_end_cnt > judge->thre)
-        {
-            judge->end_cnt = 0;
-            judge->not_end_cnt = 0;
-        }
-    }
-    return false;
-}
-
 void front_stairs_end_check()
 {
-    int white_count = calc_white(NEAR_LINE, NEAR_LINE - 20, 64, 124);
-    if (white_count < 400)
-    {
-        front_stairs_end_flag = 1;
-    }
-    else {
-        front_stairs_end_flag = 0;
-    }
+    int white_count = calc_white(NEAR_LINE, NEAR_LINE - 20, middle - 30, middle + 30);
+    front_stairs_end_flag = element_end_judge(&front_stairs_end_judge, white_count < 200);
 }
 
 void back_stairs_end_check()
@@ -1754,7 +1775,7 @@ void image_main()
 {
 #if ONBOARD
 #else 
-    now_element = BACK_STAIRS;
+    now_element = FRONT_STAIRS;
 #endif
     datas_init();
 
@@ -1837,12 +1858,6 @@ void image_main()
     if (error > 50) error = 0;
 
 
-    mid_update = 1;
-#if ONBOARD
-#else
-    //printf("dis: %d, start: %d, end: %d, error: %d\n", jolt_distance, road_start, road_end, error);
-    //printf("single_side_state: %d\n", single_side_state);
-    printf("jolt_end: %d\n", jolt_end_flag);
     for (int i = 0; i < CAMERA_W; i++)
     {
         IMG[error_calc_near_line][i] = purple;
@@ -1855,5 +1870,16 @@ void image_main()
             IMG[i][right_line[i]] = green;
             IMG[i][mid_line[i]] = red;
         }
-#endif
+	for (int i = 0; i < CAMERA_W; i++)
+	{
+		IMG[road_start][i] = red;
+		IMG[road_end][i] = green;
+	}
+     #if ONBOARD
+     #else
+        printf("dis: %d, start: %d, end: %d, error: %d\n", stair_distance, road_start, road_end, error);
+        //printf("single_side_state: %d\n", single_side_state);
+        // printf("jolt_end: %d\n", jolt_end_flag);
+     #endif
+    mid_update = 1;
 }
