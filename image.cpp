@@ -26,26 +26,8 @@ typedef struct {
     range   area[white_num_MAX];//该行各白条区域
 }all_range;
 
-typedef struct {
-    int thre, tolerance;
-    int end_cnt, not_end_cnt;
-}end_judge_t;
-
-//////////////////////// 传给控制 ////////////////////
 // 1-单边桥 2-三级跳 3-下三级 4-颠簸路段
 element_t now_element;
-int stair_distance;     // 到下一级台阶的距离
-bool back_stairs_end_flag = 0;
-int error = 0;
-int error_calc_near_line = 52;
-int error_calc_far_line = 50;
-
-uint8_t single_side_state;
-
-int back_stairs_end_cnt_thre = 15;
-uint8_t mid_update = 0;
-uint8_t middle = 84;    // 中线校准（有些摄像头会整体向左右偏，所以真正的正中间不一定是94）
-//////////////////////// ////////// //////////////////
 
 //////////////////////// 二值化 ////////////////////////
 // 去阴影强度
@@ -90,18 +72,30 @@ uint8_t left_line[CAMERA_H], right_line[CAMERA_H];//赛道的左右边界
 uint8_t old_left_line[CAMERA_H], old_right_line[CAMERA_H];
 uint8_t mid_line[CAMERA_H];
 int all_connect_num = 0;
+
 uint8_t enable_dis_shadow = 1;     //是否启用去除影子策略
 
-//////////////////////// 颠簸路段 //////////////////////
-int jolt_end_cnt_thre = 20;
-bool jolt_end_flag = 0;
-end_judge_t jolt_end_judge = { 20, 3, 0, 0 };
-int front_stairs_end_cnt_thre = 40;
-bool front_stairs_end_flag = 0;
+// error计算
+int error = 0;
+int error_calc_near_line = 52;
+int error_calc_far_line = 50;
+uint8_t mid_update = 0;
+uint8_t middle = 84;    // 中线校准（有些摄像头会整体向左右偏，所以真正的正中间不一定是94）
+
+// 上台阶
+int stair_distance;     // 到下一级台阶的距离
+int stair_distance_side = 0; // 用左边线还是右边线微调距离，0-左边线 1-右边线 2-不进行距离微调
 end_judge_t front_stairs_end_judge = { 40, 3, 0, 0 };
 
-int back_stairs_end_judge_cnt = 0;
+// 下台阶
+end_judge_t back_stairs_end_judge = { 40, 3, 0, 0 };
 
+// 颠簸路段
+end_judge_t jolt_end_judge = { 20, 3, 0, 0 };
+
+// 单边桥
+uint8_t single_side_state;
+end_judge_t single_side_end_judge = { 1, 0, 0, 0 };
 
 uint8_t gray_dis[CAMERA_H * CAMERA_W] = { 60, 59, 59, 58, 57, 57, 56, 56, 55, 54, 54, 53, 52, 51, 50, 49, 47, 46, 44, 44, 44, 45, 44, 43, 41, 40, 39, 39, 39, 39, 38, 37, 36, 35, 34, 32, 30, 28, 27, 26, 23, 23, 21, 19, 18, 17, 16, 16, 16, 16, 17, 18, 19, 19, 19, 19, 17, 17, 17, 17, 17, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 17, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 17, 16, 16, 15, 14, 12, 11, 10, 10, 11, 11, 10, 9, 4, 4, 3, 2, 2, 2, 3, 3, 4, 4, 3, 4, 4, 5, 6, 7, 6, 8, 9, 9, 9, 9, 11, 12, 13, 13, 14, 15, 16, 17, 18, 18, 19, 20, 20, 21, 23, 24, 24, 25, 28, 28, 28, 29, 29, 29, 29, 29, 30, 31, 31, 32, 33, 34, 34, 34, 35, 37, 38, 38, 38, 38, 40, 41, 42, 42, 43, 44, 45, 46, 47, 47, 49, 49, 50, 51, 53, 54, 55, 56, 57, 57, 58, 59, 60, 62, 63, 64, 68, 68, 69, 70,
 60, 59, 59, 58, 57, 56, 56, 56, 55, 54, 53, 52, 51, 50, 49, 49, 47, 45, 44, 43, 44, 44, 43, 43, 41, 40, 39, 39, 39, 39, 38, 37, 36, 35, 34, 32, 30, 28, 27, 26, 23, 22, 21, 19, 17, 16, 16, 16, 16, 16, 17, 18, 19, 19, 19, 19, 17, 17, 17, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 16, 16, 15, 15, 12, 11, 10, 10, 11, 11, 10, 8, 5, 4, 4, 3, 3, 3, 3, 4, 2, 2, 2, 2, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 10, 12, 13, 13, 14, 15, 16, 17, 17, 18, 19, 20, 20, 21, 23, 24, 24, 25, 28, 28, 28, 28, 29, 29, 29, 29, 30, 30, 31, 32, 33, 33, 34, 34, 35, 36, 37, 38, 38, 38, 39, 41, 41, 42, 43, 44, 45, 46, 47, 47, 48, 49, 50, 51, 52, 54, 55, 55, 57, 57, 58, 58, 60, 61, 63, 64, 66, 67, 67, 68,
@@ -1383,7 +1377,7 @@ static int calc_white(uint8_t near, uint8_t far, uint8_t left, uint8_t right)
     return white_count;
 }
 
-static bool element_end_judge(end_judge_t* judge, bool now)
+static void element_end_judge(end_judge_t* judge, bool now)
 {
     if (now)
     {
@@ -1391,7 +1385,7 @@ static bool element_end_judge(end_judge_t* judge, bool now)
         if (judge->end_cnt > judge->thre)
         {
             judge->not_end_cnt = 0;
-            return true;
+            judge->end_flag = true;
         }
     }
     else
@@ -1403,7 +1397,7 @@ static bool element_end_judge(end_judge_t* judge, bool now)
             judge->not_end_cnt = 0;
         }
     }
-    return false;
+    judge->end_flag = false;
 }
 
 //数值初始化
@@ -1411,9 +1405,6 @@ void datas_init()
 {
     road_start = NEAR_LINE;
     road_end = FAR_LINE;
-
-    jolt_end_judge.thre = jolt_end_cnt_thre;
-    front_stairs_end_judge.thre = front_stairs_end_cnt_thre;
 }
 
 bool judge_least_square(float input[], bool l_or_r, float min_R, float k1, float k2)
@@ -1515,7 +1506,24 @@ void calc_stair_distance()
 {
     if (NEAR_LINE - road_start >= 2)
     {
-        stair_distance = NEAR_LINE - road_start;
+		uint8_t correct_start = road_start;
+        if (stair_distance_side == 0)
+        {
+            correct_start = find_least_square_start(left_line, road_start, road_end, 6, 0, false, 0.7, 0.0, 1.2);
+        }
+		else if (stair_distance_side == 1)
+		{
+			correct_start = find_least_square_start(right_line, road_start, road_end, 6, 1, false, 0.7, 0.0, 1.2);
+		}
+        // 如果stair_distance == 2 不进行距离微调
+
+        if (road_start - correct_start < 15)
+        {
+            stair_distance = NEAR_LINE - correct_start;
+            road_start = correct_start;
+        }
+        else 
+			stair_distance = NEAR_LINE - road_start + 5;
     }
     else {
         stair_distance = NEAR_LINE - road_end;
@@ -1680,16 +1688,8 @@ void mend_single_side()
     }
     if (single_side_state)
     {
-        int count = 0;
-        for (int i = NEAR_LINE - 40; i >= NEAR_LINE - 70; i--)
-        {
-            for (int j = middle - 20; j <= middle + 20; j++)
-            {
-                if (IMG[i][j]) count++;
-            }
-        }
-        if (count < 300)
-            single_side_state = 0;
+        int white_count = calc_white(NEAR_LINE - 40, NEAR_LINE - 70, middle - 20, middle + 20);
+        element_end_judge(&single_side_end_judge, white_count < 300);
     }
 #if ONBOARD
 #else 
@@ -1718,35 +1718,21 @@ void mend_single_side()
 void front_stairs_end_check()
 {
     int white_count = calc_white(NEAR_LINE, NEAR_LINE - 20, middle - 30, middle + 30);
-    front_stairs_end_flag = element_end_judge(&front_stairs_end_judge, white_count < 200);
+    element_end_judge(&front_stairs_end_judge, white_count < 200);
 }
 
 void back_stairs_end_check()
 {
     int white_count = calc_white(NEAR_LINE, NEAR_LINE - 20, 64, 124);
-    if (follow_lock == 3 && white_count < 400)
-    {
-        back_stairs_end_judge_cnt++;
-        if (back_stairs_end_judge_cnt > back_stairs_end_cnt_thre)
-        {
-            // 达到阈值，退出BACK_STAIRS状态
-            back_stairs_end_judge_cnt = 0;
-            back_stairs_end_flag = 1;
-        }
-    }
-    else {
-        back_stairs_end_flag = 0;
-        back_stairs_end_judge_cnt = 0;
-    }
+	element_end_judge(&back_stairs_end_judge, white_count < 200);
 }
-
 
 void jolt_end_check()
 {
     if (jolt_lock == 2)
     {
         int white_count = calc_white(NEAR_LINE, NEAR_LINE - 20, 64, 124);
-        jolt_end_flag = element_end_judge(&jolt_end_judge, white_count < 400);
+        element_end_judge(&jolt_end_judge, white_count < 400);
     }
 }
 
@@ -1836,13 +1822,13 @@ void image_main()
     case BACK_STAIRS:
         if (follow_lock == 3)
         {
-            // 防止最后一段error过大导致车子乱转
             if (error < -20) error = 0;
             if (error > 20) error = 0;
-            if (back_stairs_end_judge_cnt > 5)
-            {
-                error = 0;
-            }
+            // 防止最后一段error过大导致车子乱转
+            //if (back_stairs_end_judge.end_cnt > 10)
+            //{
+            //    error = 0;
+            //}
         }
         break;
     case SINGLE_SIDE:
